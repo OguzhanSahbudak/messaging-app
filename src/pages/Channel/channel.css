@@ -1,0 +1,163 @@
+/* Ana Sayfa Konteyneri */
+.channel-page-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #f4f6f8;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+/* Yükleme Ekranı */
+.channel-loading-wrapper {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #f4f6f8;
+}
+
+/* Merkezi Kart Yapısı (SignIn ile uyumlu) */
+.channel-card {
+  width: 100%;
+  max-width: 520px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(149, 157, 165, 0.2);
+  padding: 40px 32px;
+  box-sizing: border-box;
+}
+
+.channel-alert {
+  margin-bottom: 24px !important;
+}
+
+/* Başlık ve Alt Başlık (Kanal Yoksa) */
+.channel-empty-state {
+  text-align: center;
+}
+
+.channel-title {
+  margin: 0 0 12px 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.channel-subtitle {
+  margin: 0 0 28px 0;
+  font-size: 0.95rem;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+/* Form Yerleşimi */
+.channel-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* MUI TextField ve Button için özel sınıflar */
+.channel-input {
+  background-color: #fcfcfc;
+}
+
+.channel-submit-btn {
+  margin-top: 8px !important;
+  padding: 12px 0 !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  text-transform: none !important;
+  font-size: 1.05rem !important;
+}
+
+/* Kanal Listesi Görünümü */
+.channel-list-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.channel-list-title {
+  margin: 0 0 20px 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f172a;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 12px;
+}
+
+.channel-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.channel-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #fafafa;
+  transition: all 0.2s ease;
+}
+
+.channel-list-item:hover {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.channel-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.channel-item-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.channel-item-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+
+
+
+
+/* Responsive Tasarım (Mobil Uyumluluk) */
+@media (max-width: 600px) {
+  .channel-page-wrapper {
+    padding: 12px;
+  }
+  
+  .channel-card {
+    padding: 24px 20px;
+  }
+
+  .channel-title {
+    font-size: 1.5rem;
+  }
+
+  .channel-list-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .channel-list-item button {
+    width: 100%;
+  }
+}

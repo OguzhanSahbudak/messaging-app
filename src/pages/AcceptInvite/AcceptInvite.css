@@ -1,0 +1,67 @@
+/* Sayfa Ana Konteyneri */
+.accept-invite-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #f4f6f8;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+/* Durum İçerik Kutusu */
+.accept-invite-status-box {
+  text-align: center;
+  max-width: 480px;
+  width: 100%;
+  background-color: #ffffff;
+  padding: 40px 32px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(149, 157, 165, 0.15);
+  box-sizing: border-box;
+}
+
+/* Yükleme Spinner ve Metni */
+.accept-invite-spinner {
+  margin-bottom: 24px !important;
+}
+
+.accept-invite-loading-text {
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+/* Uyarı Kutusu */
+.accept-invite-alert {
+  margin-bottom: 24px !important;
+  font-size: 1.05rem !important;
+  border-radius: 8px !important;
+}
+
+/* Yönlendirme Alt Metni */
+.accept-invite-subtext {
+  margin-bottom: 24px !important;
+  color: #475569 !important;
+}
+
+/* Buton Stili */
+.accept-invite-btn {
+  padding: 10px 24px !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  text-transform: none !important;
+  font-size: 0.95rem !important;
+}
+
+/* Mobil Responsive İyileştirmesi */
+@media (max-width: 600px) {
+  .accept-invite-wrapper {
+    padding: 16px;
+  }
+
+  .accept-invite-status-box {
+    padding: 28px 20px;
+  }
+}

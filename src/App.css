@@ -1,0 +1,12 @@
+body{
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* MUI Badge balonunun özelleştirilmesi (JSX'e eklenmez, MUI kendi bulur) */
+.MuiBadge-badge {
+  font-weight: bold;
+  font-size: 0.75rem;
+}

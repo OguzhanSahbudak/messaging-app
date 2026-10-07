@@ -1,0 +1,158 @@
+/* --- TEMA DEĞİŞKENLERİ (Modern renk paleti) --- */
+:root {
+  --primary-color: #4f46e5;      /* Indigo 600 */
+  --primary-hover: #4338ca;      /* Indigo 700 */
+  --bg-color: #f8fafc;           /* Slate 50 - Çok açık gri/mavi arka plan */
+  --card-bg: #ffffff;
+  --text-main: #0f172a;          /* Slate 900 - Saf siyah yerine daha yumuşak */
+  --text-muted: #64748b;         /* Slate 500 - Alt metinler için */
+  --border-color: #e2e8f0;       /* Slate 200 */
+  --focus-ring: rgba(79, 70, 229, 0.15); /* Buton ve input için parlama */
+}
+
+.signin-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: var(--bg-color);
+  padding: 20px;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Katmanlı ve yumuşak gölge (Modern Apple/Stripe tarzı) */
+.signin-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--card-bg);
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  text-align: center;
+}
+
+/* Animasyon: İçeriğin yumuşakça belirmesi ve hafifçe yukarı kayması */
+.fade-in-step {
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInUp {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.signin-header {
+  margin-bottom: 32px;
+}
+
+.signin-title {
+  margin: 0 0 8px 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.5px;
+}
+
+.signin-subtitle {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+/* Profesyonel İnput Tasarımı */
+.input-group {
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.input-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.signin-input {
+  background-color: #fcfcfc;
+}
+
+.signin-input::placeholder {
+  color: #94a3b8;
+}
+
+.signin-input:focus {
+  background-color: #ffffff;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+/* Profesyonel Buton Tasarımı */
+.signin-btn {
+  width: 100%;
+  padding: 14px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+}
+
+.signin-btn:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 8px -1px rgba(79, 70, 229, 0.3);
+}
+
+.signin-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* İnput boşken butonun silik görünmesi */
+.signin-btn:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Geri Dön Butonu (Hayalet Buton) */
+.back-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: 16px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.back-btn:hover {
+  color: var(--text-main);
+}
+
+
+
+.icon-badge {
+  width: 56px;
+  height: 56px;
+  background-color: rgba(79, 70, 229, 0.08); 
+  color: var(--primary-color);              
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px auto;                  
+  border: 1px solid rgba(79, 70, 229, 0.15);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.header-icon {
+  font-size: 26px; 
+}

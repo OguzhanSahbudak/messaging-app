@@ -1,0 +1,396 @@
+/* ChatLayout.css */
+:root {
+  /* Giriş ekranından alınan tema renkleri */
+  --brand-primary: #5452F6;
+  /* Butondaki mavi-mor renk */
+  --brand-light: #EBEBFE;
+  /* İkonun arkasındaki uçuk mavi-mor */
+  --bg-page: #F4F6F8;
+  /* Sayfanın genel açık gri arka planı */
+  --bg-surface: #FFFFFF;
+  /* Beyaz kart/panel rengi */
+
+  --text-dark: #111827;
+  /* Başlıklar ve ana metinler */
+  --text-muted: #6B7280;
+  /* Alt metinler ve pasif ikonlar */
+  --border-color: #E5E7EB;
+  /* İnce ayırıcı çizgiler */
+  --hover-bg: #F3F4F6;
+  /* Liste elemanı üzerine gelince */
+
+  --sidebar-width: 280px;
+  --app-bar-width: 72px;
+}
+
+.chat-layout-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: var(--bg-page);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* 1. En Sol İkon Barı (App Sidebar) */
+.app-sidebar {
+  width: var(--app-bar-width);
+  background-color: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 0;
+  gap: 1.5rem;
+  border-right: 1px solid var(--border-color);
+  z-index: 10;
+}
+
+.app-icon-btn {
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 500;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: none;
+  border: none;
+  width: 100%;
+  padding: 0.5rem 0;
+}
+
+.app-icon-btn:hover {
+  color: var(--brand-primary);
+  background-color: var(--brand-light);
+}
+
+.app-icon-btn.active {
+  color: var(--brand-primary);
+  position: relative;
+}
+
+.app-icon-btn.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10%;
+  height: 80%;
+  width: 4px;
+  background-color: var(--brand-primary);
+  border-radius: 0 4px 4px 0;
+}
+
+.app-logo-wrapper {
+  width: 48px;
+  height: 48px;
+  background-color: var(--brand-light);
+  color: var(--brand-primary);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+/* 2. Kanal / DM Listesi Barı (Workspace Sidebar) */
+.workspace-sidebar {
+  width: var(--sidebar-width);
+  background-color: var(--bg-page);
+  /* Login arka planı gibi hafif gri */
+  color: var(--text-dark);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+}
+
+.workspace-header {
+  height: 70px;
+  display: flex;
+  align-items: center;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: var(--text-dark);
+}
+
+.sidebar-section {
+  padding: 1.5rem 1rem 0.5rem 1rem;
+}
+
+.sidebar-section-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  padding: 0 0.75rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.add-btn {
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: color 0.2s;
+}
+
+.add-btn:hover {
+  color: var(--brand-primary);
+}
+
+.sidebar-item {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  transition: all 0.2s;
+  margin-bottom: 0.2rem;
+}
+
+.sidebar-item:hover {
+  background-color: var(--hover-bg);
+}
+
+.sidebar-item.active {
+  background-color: var(--brand-light);
+  color: var(--brand-primary);
+}
+
+/* 3. Ana Chat Alanı */
+.chat-main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-surface);
+}
+
+.chat-header {
+  height: 70px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 2rem;
+  justify-content: space-between;
+}
+
+.search-box {
+  width: 300px;
+  background: var(--bg-page);
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  border: 1px solid transparent;
+  transition: border 0.2s;
+}
+
+.search-box:focus-within {
+  border: 1px solid var(--brand-primary);
+  background: var(--bg-surface);
+}
+
+.search-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  margin-left: 8px;
+  color: var(--text-dark);
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Mesaj Kutusu */
+.message-box {
+  display: flex;
+  gap: 1rem;
+}
+
+.message-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background-color: var(--brand-light);
+  color: var(--brand-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.message-content-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.3rem;
+}
+
+.message-sender {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.message-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.message-text {
+  color: var(--text-dark);
+  line-height: 1.5;
+  background-color: var(--bg-page);
+  padding: 10px 14px;
+  border-radius: 0 12px 12px 12px;
+  display: inline-block;
+}
+
+/* Kendi mesajımız için sağa dayalı veya farklı stil (Opsiyonel) */
+.message-box.own-message .message-text {
+  background-color: var(--brand-light);
+  color: var(--text-dark);
+}
+
+/* Zengin Metin (Rich Text) Input Alanı */
+.chat-input-container {
+  padding: 0 2rem 2rem 2rem;
+}
+
+.chat-input-wrapper {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--bg-surface);
+  transition: all 0.2s;
+}
+
+.chat-input-wrapper:focus-within {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-light);
+}
+
+.chat-input-toolbar {
+  background-color: var(--bg-page);
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  gap: 0.2rem;
+}
+
+.chat-input {
+  border: none;
+  resize: none;
+  padding: 1rem;
+  outline: none;
+  min-height: 50px;
+  font-family: inherit;
+  color: var(--text-dark);
+}
+
+.chat-input::placeholder {
+  color: var(--text-muted);
+}
+
+.chat-input-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+}
+
+
+/* ==========================================
+   Edit Channel Modal Stilleri
+   ========================================== */
+
+.channel-edit-modal .MuiPaper-root {
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.channel-edit-title {
+  font-size: 1.2rem !important;
+  font-weight: 600 !important;
+  color: var(--text-dark, #111827) !important;
+  padding-bottom: 8px !important;
+}
+
+.channel-edit-form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 12px !important;
+}
+
+.channel-edit-actions {
+  padding: 16px 24px !important;
+  gap: 8px;
+}
+
+.btn-channel-cancel {
+  color: var(--text-muted, #6B7280) !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
+}
+
+.btn-channel-save {
+  background-color: var(--brand-primary, #5452F6) !important;
+  color: #ffffff !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
+  border-radius: 8px !important;
+  padding: 6px 20px !important;
+}
+
+.btn-channel-save:hover {
+  background-color: #4338CA !important;
+}
+
+.btn-channel-save:disabled {
+  background-color: #E5E7EB !important;
+  color: #9CA3AF !important;
+}
+
+
+/* Responsive Tasarım */
+@media (max-width: 768px) {
+  .workspace-sidebar {
+    position: absolute;
+    height: 100%;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 5;
+    box-shadow: 4px 0 15px rgba(0, 0, 0, 0.05);
+  }
+
+  .workspace-sidebar.mobile-open {
+    transform: translateX(var(--app-bar-width));
+  }
+
+  .chat-header {
+    padding: 0 1rem;
+  }
+
+  .chat-input-container {
+    padding: 0 1rem 1rem 1rem;
+  }
+}
