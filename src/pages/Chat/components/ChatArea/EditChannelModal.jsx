@@ -106,4 +106,4 @@ const EditChannelModal = ({ open, onClose, channel }) => {
   )
 }
 
-export default EditChannelModal
+export default EditChannelModal 

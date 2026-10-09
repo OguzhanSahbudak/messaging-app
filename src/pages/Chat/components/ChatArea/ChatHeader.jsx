@@ -4,12 +4,11 @@ import { useSelector } from 'react-redux';
 import { IconButton, Tooltip } from '@mui/material';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
-import EditChannelModal from './EditChannelModal';
+
 
 const ChatHeader = ({ onMenuClick }) => {
 
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    
     // GÜNCELLEME: Hem activeChannel hem activeUser doğrudan Redux'tan çekiliyor
     const { activeChannel, activeUser } = useSelector((state) => state.chat);
 
@@ -48,18 +47,7 @@ const ChatHeader = ({ onMenuClick }) => {
                                         # {activeChannel.name}
                                     </h4>
 
-                                    {/* Yalnızca Admin ise Çark (Ayar) İkonunu Göster */}
-                                    {isAdmin && (
-                                        <Tooltip title="Kanalı Düzenle" arrow>
-                                            <IconButton 
-                                                size="small" 
-                                                onClick={() => setIsEditModalOpen(true)}
-                                                sx={{ color: 'var(--text-muted)', padding: '4px' }}
-                                            >
-                                                <SettingsRoundedIcon fontSize="small" />
-                                            </IconButton>
-                                        </Tooltip>
-                                    )}
+                                   
                                 </div>
                                 
                                 {activeChannel.description && (
@@ -93,13 +81,7 @@ const ChatHeader = ({ onMenuClick }) => {
             </div>
         </div>
         
-        {isAdmin && (
-                <EditChannelModal 
-                    open={isEditModalOpen}
-                    onClose={() => setIsEditModalOpen(false)}
-                    channel={activeChannel}
-                />
-            )}
+       
 
              </>
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchChannelMembers, updateChannelMember } from '../../../../store/membersSlice';
+import EditChannelModal from './EditChannelModal'; // Bağımsız modalımız import edildi
 import {
     Dialog,
     DialogTitle,
@@ -12,7 +13,8 @@ import {
     MenuItem,
     FormControl,
     InputLabel,
-    Typography
+    Typography,
+    CircularProgress
 } from '@mui/material';
 
 const SettingsModal = ({ open, onClose }) => {
@@ -24,15 +26,19 @@ const SettingsModal = ({ open, onClose }) => {
 
     // Modal İçi Görünüm State'i ('menu' | 'editProfile' | 'editMembers')
     const [settingsView, setSettingsView] = useState('menu');
+    const [loading, setLoading] = useState(false);
 
-    // --- 1. KISIM: KENDİ PROFİLİM İÇİN AYRI STATE'LER ---
+    // Kendi Profilim İçin State'ler
     const [profileFirstName, setProfileFirstName] = useState('');
     const [profileLastName, setProfileLastName] = useState('');
 
-    // --- 2. KISIM: DİĞER ÜYELER (ADMIN) İÇİN AYRI STATE'LER ---
+    // Diğer Üyeler (Admin) İçin State'ler
     const [selectedUserId, setSelectedUserId] = useState('');
     const [memberFirstName, setMemberFirstName] = useState('');
     const [memberLastName, setMemberLastName] = useState('');
+
+    // --- YENİ: EditChannelModal'ın açılıp kapanma kontrolü ---
+    const [isEditChannelModalOpen, setIsEditChannelModalOpen] = useState(false);
 
     // Kanal ID Yönetimi (Sabit Ana Kanal Hafızası)
     const effectiveChannelId = useMemo(() => {
@@ -49,7 +55,7 @@ const SettingsModal = ({ open, onClose }) => {
         return activeChannel?.id || '';
     }, [activeChannel]);
 
-    // LocalStorage'daki activeUser objesinden gerçek ID'yi güvenle çekme[cite: 7]
+    // Oturum Açan Kullanıcının Gerçek ID'sini Bulma
     const myRealUserId = useMemo(() => {
         try {
             const activeUserStr = localStorage.getItem('activeUser');
@@ -59,7 +65,6 @@ const SettingsModal = ({ open, onClose }) => {
                     return String(parsed.id || parsed.user_id);
                 }
             }
-            // Alternatif anahtarlar
             const directUserId = localStorage.getItem('userId');
             if (directUserId) return String(directUserId);
         } catch (e) {}
@@ -101,16 +106,20 @@ const SettingsModal = ({ open, onClose }) => {
         }
     }, [open]);
 
-    // Görünümlere Geçiş Yapıldığında İlgili Formu Doldurma
+    // Görünümlere Geçiş Yapıldığında Formları Doldurma
     const handleGoToView = (view) => {
+        if (view === 'editChannel') {
+            // Ayarlar modalını kapatmadan üstüne senin ayrı EditChannelModal'ını açıyoruz
+            setIsEditChannelModalOpen(true);
+            return;
+        }
+
         setSettingsView(view);
 
         if (view === 'editProfile') {
-            // Sadece kendi profil form state'ini doldurur
             setProfileFirstName(myMemberData?.first_name || myMemberData?.user?.first_name || '');
             setProfileLastName(myMemberData?.last_name || myMemberData?.user?.last_name || '');
         } else if (view === 'editMembers') {
-            // Sadece üye düzenleme form state'ini doldurur
             if (otherMembers.length > 0) {
                 const firstOther = otherMembers[0];
                 const firstId = String(firstOther.user_id || firstOther.id || firstOther.user?.id || '');
@@ -125,7 +134,7 @@ const SettingsModal = ({ open, onClose }) => {
         }
     };
 
-    // Admin Select Listesinden Başka Üye Seçtiğinde
+    // Admin Üye Seçimini Değiştirdiğinde
     const handleMemberSelectChange = (event) => {
         const selectedId = String(event.target.value);
         setSelectedUserId(selectedId);
@@ -137,179 +146,205 @@ const SettingsModal = ({ open, onClose }) => {
         }
     };
 
-    // Güncelleme İsteğini Gönder (Hangi görünümdeysek onun verisi gider)
-    const handleSave = () => {
+    // Kaydetme İşlemi (Profil veya Üye Güncelleme)
+    const handleSave = async () => {
         if (!effectiveChannelId) return;
+        setLoading(true);
 
-        const targetUserId = settingsView === 'editProfile' ? myRealUserId : selectedUserId;
-        const currentFirstName = settingsView === 'editProfile' ? profileFirstName : memberFirstName;
-        const currentLastName = settingsView === 'editProfile' ? profileLastName : memberLastName;
-
-        if (!targetUserId) return;
-
-        dispatch(updateChannelMember({
-            channelId: effectiveChannelId,
-            targetUserId: targetUserId,
-            firstName: currentFirstName,
-            lastName: currentLastName
-        })).then((result) => {
-            if (!result.error) {
+        try {
+            if (settingsView === 'editProfile') {
+                await dispatch(updateChannelMember({
+                    channelId: effectiveChannelId,
+                    targetUserId: myRealUserId,
+                    firstName: profileFirstName,
+                    lastName: profileLastName
+                })).unwrap();
+                onClose();
+            } else if (settingsView === 'editMembers') {
+                if (!selectedUserId) return;
+                await dispatch(updateChannelMember({
+                    channelId: effectiveChannelId,
+                    targetUserId: selectedUserId,
+                    firstName: memberFirstName,
+                    lastName: memberLastName
+                })).unwrap();
                 onClose();
             }
-        });
+        } catch (err) {
+            console.error("Güncelleme hatası:", err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>
-                {settingsView === 'menu' && 'Ayarlar'}
-                {settingsView === 'editProfile' && 'Profil Bilgilerini Düzenle'}
-                {settingsView === 'editMembers' && 'Üye Bilgilerini Düzenle'}
-            </DialogTitle>
+        <>
+            <Dialog open={open} onClose={!loading ? onClose : null} maxWidth="sm" fullWidth>
+                <DialogTitle>
+                    {settingsView === 'menu' && 'Ayarlar'}
+                    {settingsView === 'editProfile' && 'Profil Bilgilerini Düzenle'}
+                    {settingsView === 'editMembers' && 'Üye Bilgilerini Düzenle'}
+                </DialogTitle>
 
-            <DialogContent dividers>
-                {!effectiveChannelId ? (
-                    <p className="settings-warning-text" style={{ padding: '20px', textAlign: 'center' }}>
-                        Lütfen ayarlara erişmek için önce bir ana gruba tıklayın.
-                    </p>
-                ) : (
-                    <div className="settings-modal-content">
+                <DialogContent dividers>
+                    {!effectiveChannelId ? (
+                        <p className="settings-warning-text" style={{ padding: '20px', textAlign: 'center' }}>
+                            Lütfen ayarlara erişmek için önce bir ana gruba tıklayın.
+                        </p>
+                    ) : (
+                        <div className="settings-modal-content">
 
-                        {/* 1. GÖRÜNÜM: ANA MENÜ */}
-                        {settingsView === 'menu' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingTop: '10px' }}>
-                                <Button
-                                    variant="outlined"
-                                    fullWidth
-                                    onClick={() => handleGoToView('editProfile')}
-                                    style={{ justifyContent: 'flex-start', textTransform: 'none', padding: '10px 15px', fontSize: '16px' }}
-                                >
-                                    👤 Profilini Düzenle
-                                </Button>
-
-                                {isAdmin && (
+                            {/* 1. GÖRÜNÜM: ANA MENÜ */}
+                            {settingsView === 'menu' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingTop: '10px' }}>
                                     <Button
                                         variant="outlined"
                                         fullWidth
-                                        onClick={() => handleGoToView('editMembers')}
+                                        onClick={() => handleGoToView('editProfile')}
                                         style={{ justifyContent: 'flex-start', textTransform: 'none', padding: '10px 15px', fontSize: '16px' }}
                                     >
-                                        👥 Üye Bilgilerini Düzenle
+                                        👤 Profilini Düzenle
                                     </Button>
-                                )}
 
-                                <Button
-                                    variant="outlined"
-                                    fullWidth
-                                    disabled
-                                    style={{ justifyContent: 'flex-start', textTransform: 'none', padding: '10px 15px', fontSize: '16px' }}
-                                >
-                                    ⚙️ Kanal Ayarları (Yakında)
-                                </Button>
-                            </div>
-                        )}
-
-                        {/* 2. GÖRÜNÜM: KENDİ PROFİLİNİ DÜZENLEME */}
-                        {settingsView === 'editProfile' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingTop: '10px' }}>
-                                <TextField
-                                    label="Adınız"
-                                    variant="outlined"
-                                    size="small"
-                                    fullWidth
-                                    value={profileFirstName}
-                                    onChange={(e) => setProfileFirstName(e.target.value)}
-                                />
-                                <TextField
-                                    label="Soyadınız"
-                                    variant="outlined"
-                                    size="small"
-                                    fullWidth
-                                    value={profileLastName}
-                                    onChange={(e) => setProfileLastName(e.target.value)}
-                                />
-                            </div>
-                        )}
-
-                        {/* 3. GÖRÜNÜM: ADMİN İÇİN DİĞER ÜYELERİ DÜZENLEME */}
-                        {settingsView === 'editMembers' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingTop: '10px' }}>
-                                <Typography variant="caption" color="textSecondary">
-                                    Yönetim Havuzu: <strong>Ortak Ana Kanal</strong>
-                                </Typography>
-
-                                {otherMembers.length === 0 ? (
-                                    <p>Bu kanalda güncellenebilecek başka üye bulunamadı.</p>
-                                ) : (
-                                    <>
-                                        <FormControl fullWidth size="small">
-                                            <InputLabel id="select-member-label">Güncellenecek Üye</InputLabel>
-                                            <Select
-                                                labelId="select-member-label"
-                                                value={selectedUserId || ''}
-                                                label="Güncellenecek Üye"
-                                                onChange={handleMemberSelectChange}
+                                    {isAdmin && (
+                                        <>
+                                            <Button
+                                                variant="outlined"
+                                                fullWidth
+                                                onClick={() => handleGoToView('editMembers')}
+                                                style={{ justifyContent: 'flex-start', textTransform: 'none', padding: '10px 15px', fontSize: '16px' }}
                                             >
-                                                {otherMembers.map((member, index) => {
-                                                    const memberUserId = String(member.user_id || member.id || member.user?.id || index);
-                                                    const fName = member.first_name || member.user?.first_name || '';
-                                                    const lName = member.last_name || member.user?.last_name || '';
-                                                    const uName = member.username || member.user?.username || 'Kullanıcı';
+                                                👥 Üye Bilgilerini Düzenle
+                                            </Button>
 
-                                                    return (
-                                                        <MenuItem key={memberUserId} value={memberUserId}>
-                                                            {fName || lName ? `${fName} ${lName}` : 'İsimsiz Üye'} ({uName})
-                                                        </MenuItem>
-                                                    );
-                                                })}
-                                            </Select>
-                                        </FormControl>
+                                            <Button
+                                                variant="outlined"
+                                                fullWidth
+                                                onClick={() => handleGoToView('editChannel')}
+                                                style={{ justifyContent: 'flex-start', textTransform: 'none', padding: '10px 15px', fontSize: '16px' }}
+                                            >
+                                                ⚙️ Kanal Ayarları
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
 
-                                        <TextField
-                                            label="Üye Adı"
-                                            variant="outlined"
-                                            size="small"
-                                            fullWidth
-                                            value={memberFirstName}
-                                            onChange={(e) => setMemberFirstName(e.target.value)}
-                                        />
-                                        <TextField
-                                            label="Üye Soyadı"
-                                            variant="outlined"
-                                            size="small"
-                                            fullWidth
-                                            value={memberLastName}
-                                            onChange={(e) => setMemberLastName(e.target.value)}
-                                        />
-                                    </>
-                                )}
-                            </div>
-                        )}
+                            {/* 2. GÖRÜNÜM: KENDİ PROFİLİNİ DÜZENLEME */}
+                            {settingsView === 'editProfile' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingTop: '10px' }}>
+                                    <TextField
+                                        label="Adınız"
+                                        variant="outlined"
+                                        size="small"
+                                        fullWidth
+                                        value={profileFirstName}
+                                        onChange={(e) => setProfileFirstName(e.target.value)}
+                                        disabled={loading}
+                                    />
+                                    <TextField
+                                        label="Soyadınız"
+                                        variant="outlined"
+                                        size="small"
+                                        fullWidth
+                                        value={profileLastName}
+                                        onChange={(e) => setProfileLastName(e.target.value)}
+                                        disabled={loading}
+                                    />
+                                </div>
+                            )}
 
-                    </div>
-                )}
-            </DialogContent>
+                            {/* 3. GÖRÜNÜM: ADMİN İÇİN DİĞER ÜYELERİ DÜZENLEME */}
+                            {settingsView === 'editMembers' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingTop: '10px' }}>
+                                    <Typography variant="caption" color="textSecondary">
+                                        Yönetim Havuzu: <strong>Ortak Ana Kanal</strong>
+                                    </Typography>
 
-            <DialogActions>
-                {settingsView !== 'menu' ? (
-                    <>
-                        <Button onClick={() => setSettingsView('menu')} color="inherit">Geri</Button>
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={handleSave}
-                            disabled={
-                                (settingsView === 'editMembers' && (!selectedUserId || otherMembers.length === 0))
-                            }
-                        >
-                            Kaydet
-                        </Button>
-                    </>
-                ) : (
-                    <Button onClick={onClose} color="inherit">Kapat</Button>
-                )}
-            </DialogActions>
-        </Dialog>
+                                    {otherMembers.length === 0 ? (
+                                        <p>Bu kanalda güncellenebilecek başka üye bulunamadı.</p>
+                                    ) : (
+                                        <>
+                                            <FormControl fullWidth size="small">
+                                                <InputLabel id="select-member-label">Güncellenecek Üye</InputLabel>
+                                                <Select
+                                                    labelId="select-member-label"
+                                                    value={selectedUserId || ''}
+                                                    label="Güncellenecek Üye"
+                                                    onChange={handleMemberSelectChange}
+                                                    disabled={loading}
+                                                >
+                                                    {otherMembers.map((member, index) => {
+                                                        const memberUserId = String(member.user_id || member.id || member.user?.id || index);
+                                                        const fName = member.first_name || member.user?.first_name || '';
+                                                        const lName = member.last_name || member.user?.last_name || '';
+                                                        const uName = member.username || member.user?.username || 'Kullanıcı';
+
+                                                        return (
+                                                            <MenuItem key={memberUserId} value={memberUserId}>
+                                                                {fName || lName ? `${fName} ${lName}` : 'İsimsiz Üye'} ({uName})
+                                                            </MenuItem>
+                                                        );
+                                                    })}
+                                                </Select>
+                                            </FormControl>
+
+                                            <TextField
+                                                label="Üye Adı"
+                                                variant="outlined"
+                                                size="small"
+                                                fullWidth
+                                                value={memberFirstName}
+                                                onChange={(e) => setMemberFirstName(e.target.value)}
+                                                disabled={loading}
+                                            />
+                                            <TextField
+                                                label="Üye Soyadı"
+                                                variant="outlined"
+                                                size="small"
+                                                fullWidth
+                                                value={memberLastName}
+                                                onChange={(e) => setMemberLastName(e.target.value)}
+                                                disabled={loading}
+                                            />
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                        </div>
+                    )}
+                </DialogContent>
+
+                <DialogActions>
+                    {settingsView !== 'menu' ? (
+                        <>
+                            <Button onClick={() => setSettingsView('menu')} color="inherit" disabled={loading}>Geri</Button>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={handleSave}
+                                disabled={
+                                    loading ||
+                                    (settingsView === 'editMembers' && (!selectedUserId || otherMembers.length === 0))
+                                }
+                            >
+                                {loading ? <CircularProgress size={20} color="inherit" /> : 'Kaydet'}
+                            </Button>
+                        </>
+                    ) : (
+                        <Button onClick={onClose} color="inherit">Kapat</Button>
+                    )}
+                </DialogActions>
+            </Dialog>
+
+            {/* Ayrı olan EditChannelModal'ı SettingsModal içinde tetikliyoruz */}
+            <EditChannelModal 
+                open={isEditChannelModalOpen}
+                onClose={() => setIsEditChannelModalOpen(false)}
+                channel={activeChannel}
+            />
+        </>
     );
 };
 
