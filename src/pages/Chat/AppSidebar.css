@@ -1,0 +1,15 @@
+/* Ayarlar Modal İçeriği */
+.settings-modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 15px;
+}
+
+/* Uyarı Metni */
+.settings-warning-text {
+    color: #666;
+    font-size: 0.9rem;
+    text-align: center;
+    margin: 20px 0;
+}
