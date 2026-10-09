@@ -18,7 +18,7 @@ import {
 const SettingsModal = ({ open, onClose }) => {
     const dispatch = useDispatch();
 
-    // Redux State'leri
+    // Redux State'leri (Attığın chatSlice ve memberSlice ile birebir uyumlu)
     const activeChannel = useSelector((state) => state.chat.activeChannel);
     const channelMembers = useSelector((state) => state.members.list || []);
 
@@ -28,8 +28,28 @@ const SettingsModal = ({ open, onClose }) => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
 
-    // --- TEMİZ ÇÖZÜM: Sadece şu an içinde bulunduğumuz kanalı kullanıyoruz ---
-    const effectiveChannelId = activeChannel?.id;
+    // --- AÇIKLAMA: SABİT ANA KANAL ID'Sİ YÖNETİMİ ---
+    // Backend'in istediği kural: "Üye güncelleme işlemi için herkesin olduğu ana grup kanalının ID'si lazımdır."
+    // 1. Eğer kullanıcı şu an normal bir grup kanalındaysa (is_direct değilse), bunu hemen localStorage'a "main_group_channel_id" olarak kaydediyoruz.
+    // 2. Kullanıcı DM'e geçse bile modal açıldığında bu localStorage'dan o ana kanalın ID'sini okuyacak, asla patlamayacak!
+    const effectiveChannelId = useMemo(() => {
+        if (activeChannel && !activeChannel.is_direct) {
+            // Eğer aktif kanal grup kanalıysa hafızaya sabitle
+            try {
+                localStorage.setItem('main_group_channel_id', activeChannel.id);
+            } catch (e) {}
+            return activeChannel.id;
+        }
+        
+        // Eğer şu an bir DM'deysek, daha önce hafızaya kaydettiğimiz ana kanal ID'sini alıyoruz
+        try {
+            const savedMainId = localStorage.getItem('main_group_channel_id');
+            if (savedMainId) return savedMainId;
+        } catch (e) {}
+
+        // Hiçbiri yoksa son çare aktif kanal ID'si
+        return activeChannel?.id || '';
+    }, [activeChannel]);
 
     // Oturum Açan Kullanıcının Gerçek ID'sini Bulma
     const myRealUserId = useMemo(() => {
@@ -53,20 +73,33 @@ const SettingsModal = ({ open, onClose }) => {
         return '';
     }, []);
 
-    // Her Zaman SADECE AKTİF KANALIN Üyelerini Çek
+    // Global Admin Kontrolü
+    const isGlobalAdmin = useMemo(() => {
+        try {
+            const userStr = localStorage.getItem('user') || localStorage.getItem('currentUser') || localStorage.getItem('activeUser');
+            if (userStr) {
+                const parsed = JSON.parse(userStr);
+                const role = String(parsed?.role || parsed?.user_role || '').toLowerCase();
+                return role.includes('admin') || role.includes('owner') || parsed?.is_admin === true;
+            }
+        } catch (e) {}
+        return false;
+    }, []);
+
+    // Modal Açıldığında Sabit Ana Kanalın Üyelerini Çek
     useEffect(() => {
         if (open && effectiveChannelId) {
             dispatch(fetchChannelMembers(effectiveChannelId));
         }
     }, [open, effectiveChannelId, dispatch]);
 
-    // Oturum Açan Kullanıcının AKTİF KANALDAKİ Verisi ve Rolü
+    // Oturum Açan Kullanıcının Kanaldaki Verisi ve Rolü
     const myMemberData = useMemo(() => {
         return channelMembers.find(m => String(m.user_id || m.id || m.user?.id) === myRealUserId);
     }, [channelMembers, myRealUserId]);
 
-    // YETKİ KONTROLÜ (Hack'siz ve Güvenli): Kullanıcı şu anki kanalda admin mi?
     const isChannelAdmin = String(myMemberData?.role).toLowerCase() === 'admin';
+    const isAdmin = isGlobalAdmin || isChannelAdmin;
 
     // Admin'in üye düzenleme ekranında KENDİSİ HARİÇ diğer üyeler listelenir
     const otherMembers = useMemo(() => {
@@ -117,7 +150,7 @@ const SettingsModal = ({ open, onClose }) => {
         }
     };
 
-    // Güncelleme İsteğini Gönder (Şu anki temiz Kanal ID'si ile gider)
+    // Güncelleme İsteğini Gönder (Backend'in istediği o sabit ana kanal ID'si ile gider)
     const handleSave = () => {
         if (!effectiveChannelId) return;
 
@@ -125,7 +158,7 @@ const SettingsModal = ({ open, onClose }) => {
         if (!targetUserId) return;
 
         dispatch(updateChannelMember({
-            channelId: effectiveChannelId, // Artık DM veya Grup fark etmez, aktif olan gider!
+            channelId: effectiveChannelId, // DM ID'si DEĞİL, Sabit Ana Kanal ID'si!
             targetUserId: targetUserId,
             firstName,
             lastName
@@ -147,7 +180,7 @@ const SettingsModal = ({ open, onClose }) => {
             <DialogContent dividers>
                 {!effectiveChannelId ? (
                     <p className="settings-warning-text" style={{ padding: '20px', textAlign: 'center' }}>
-                        Kanal bilgisi yükleniyor...
+                        Lütfen ayarlara erişmek için önce bir ana gruba tıklayın.
                     </p>
                 ) : (
                     <div className="settings-modal-content">
@@ -164,15 +197,14 @@ const SettingsModal = ({ open, onClose }) => {
                                     👤 Profilini Düzenle
                                 </Button>
 
-                                {/* SADECE GRUP KANALIYSA VE ADMİNSE DİĞER ÜYELERİ DÜZENLE ÇIKAR */}
-                                {isChannelAdmin && !activeChannel?.is_direct && (
+                                {isAdmin && (
                                     <Button
                                         variant="outlined"
                                         fullWidth
                                         onClick={() => handleGoToView('editMembers')}
                                         style={{ justifyContent: 'flex-start', textTransform: 'none', padding: '10px 15px', fontSize: '16px' }}
                                     >
-                                        👥 Üye Bilgilerini Düzenle ({activeChannel?.name})
+                                        👥 Üye Bilgilerini Düzenle
                                     </Button>
                                 )}
 
@@ -213,7 +245,7 @@ const SettingsModal = ({ open, onClose }) => {
                         {settingsView === 'editMembers' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingTop: '10px' }}>
                                 <Typography variant="caption" color="textSecondary">
-                                    Yönetilen Kanal: <strong>{activeChannel?.name}</strong>
+                                    Yönetim Havuzu: <strong>Ortak Ana Kanal</strong>
                                 </Typography>
 
                                 {otherMembers.length === 0 ? (
