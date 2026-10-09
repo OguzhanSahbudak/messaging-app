@@ -20,14 +20,19 @@ const SettingsModal = ({ open, onClose }) => {
 
     // Redux State'leri
     const activeChannel = useSelector((state) => state.chat.activeChannel);
-    const activeUserFromStore = useSelector((state) => state.chat.activeUser);
     const channelMembers = useSelector((state) => state.members.list || []);
 
-    // Modal İçi Görünüm ve Form State'leri
+    // Modal İçi Görünüm State'i ('menu' | 'editProfile' | 'editMembers')
     const [settingsView, setSettingsView] = useState('menu');
+
+    // --- 1. KISIM: KENDİ PROFİLİM İÇİN AYRI STATE'LER ---
+    const [profileFirstName, setProfileFirstName] = useState('');
+    const [profileLastName, setProfileLastName] = useState('');
+
+    // --- 2. KISIM: DİĞER ÜYELER (ADMIN) İÇİN AYRI STATE'LER ---
     const [selectedUserId, setSelectedUserId] = useState('');
-    const [firstName, setFirstName] = useState('');
-    const [lastName, setLastName] = useState('');
+    const [memberFirstName, setMemberFirstName] = useState('');
+    const [memberLastName, setMemberLastName] = useState('');
 
     // Kanal ID Yönetimi (Sabit Ana Kanal Hafızası)
     const effectiveChannelId = useMemo(() => {
@@ -44,34 +49,22 @@ const SettingsModal = ({ open, onClose }) => {
         return activeChannel?.id || '';
     }, [activeChannel]);
 
-    // DÜZELTME: Oturum Açan Kullanıcının Gerçek ID'sini Kesin ve Güvenli Bulma
+    // LocalStorage'daki activeUser objesinden gerçek ID'yi güvenle çekme[cite: 7]
     const myRealUserId = useMemo(() => {
-        if (activeUserFromStore && (activeUserFromStore.id || activeUserFromStore.user_id)) {
-            return String(activeUserFromStore.id || activeUserFromStore.user_id);
-        }
-        const keys = ['user', 'currentUser', 'activeUser', 'chat_user'];
-        for (const key of keys) {
-            try {
-                const item = localStorage.getItem(key);
-                if (item) {
-                    const parsed = JSON.parse(item);
-                    if (parsed && (parsed.id || parsed.user_id)) {
-                        return String(parsed.id || parsed.user_id);
-                    }
-                }
-            } catch (e) {}
-        }
         try {
-            const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-            if (token) {
-                const base64Url = token.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const decoded = JSON.parse(decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
-                if (decoded) return String(decoded.id || decoded.user_id || decoded.sub || '');
+            const activeUserStr = localStorage.getItem('activeUser');
+            if (activeUserStr) {
+                const parsed = JSON.parse(activeUserStr);
+                if (parsed && (parsed.id || parsed.user_id)) {
+                    return String(parsed.id || parsed.user_id);
+                }
             }
+            // Alternatif anahtarlar
+            const directUserId = localStorage.getItem('userId');
+            if (directUserId) return String(directUserId);
         } catch (e) {}
         return '';
-    }, [activeUserFromStore]);
+    }, []);
 
     // Modal Açıldığında Ana Kanalın Üyelerini Çek
     useEffect(() => {
@@ -96,63 +89,69 @@ const SettingsModal = ({ open, onClose }) => {
         return channelMembers.filter(m => String(m.user_id || m.id || m.user?.id) !== myRealUserId);
     }, [channelMembers, myRealUserId]);
 
-    // Modal Kapandığında State Sıfırlama
+    // Modal Kapandığında State'leri Sıfırlama
     useEffect(() => {
         if (!open) {
             setSettingsView('menu');
+            setProfileFirstName('');
+            setProfileLastName('');
             setSelectedUserId('');
-            setFirstName('');
-            setLastName('');
+            setMemberFirstName('');
+            setMemberLastName('');
         }
     }, [open]);
 
-    // Görünümlere Geçiş Yapıldığında Formları Doldurma
+    // Görünümlere Geçiş Yapıldığında İlgili Formu Doldurma
     const handleGoToView = (view) => {
         setSettingsView(view);
 
         if (view === 'editProfile') {
-            // Kesinlikle sadece oturum açan kullanıcının bilgileri yüklenir
-            setFirstName(myMemberData?.first_name || myMemberData?.user?.first_name || '');
-            setLastName(myMemberData?.last_name || myMemberData?.user?.last_name || '');
+            // Sadece kendi profil form state'ini doldurur
+            setProfileFirstName(myMemberData?.first_name || myMemberData?.user?.first_name || '');
+            setProfileLastName(myMemberData?.last_name || myMemberData?.user?.last_name || '');
         } else if (view === 'editMembers') {
+            // Sadece üye düzenleme form state'ini doldurur
             if (otherMembers.length > 0) {
                 const firstOther = otherMembers[0];
                 const firstId = String(firstOther.user_id || firstOther.id || firstOther.user?.id || '');
                 setSelectedUserId(firstId);
-                setFirstName(firstOther.first_name || firstOther.user?.first_name || '');
-                setLastName(firstOther.last_name || firstOther.user?.last_name || '');
+                setMemberFirstName(firstOther.first_name || firstOther.user?.first_name || '');
+                setMemberLastName(firstOther.last_name || firstOther.user?.last_name || '');
             } else {
                 setSelectedUserId('');
-                setFirstName('');
-                setLastName('');
+                setMemberFirstName('');
+                setMemberLastName('');
             }
         }
     };
 
-    // Admin Üye Seçimini Değiştirdiğinde
+    // Admin Select Listesinden Başka Üye Seçtiğinde
     const handleMemberSelectChange = (event) => {
         const selectedId = String(event.target.value);
         setSelectedUserId(selectedId);
 
         const member = otherMembers.find(m => String(m.user_id || m.id || m.user?.id) === selectedId);
         if (member) {
-            setFirstName(member.first_name || member.user?.first_name || '');
-            setLastName(member.last_name || member.user?.last_name || '');
+            setMemberFirstName(member.first_name || member.user?.first_name || '');
+            setMemberLastName(member.last_name || member.user?.last_name || '');
         }
     };
 
-    // Güncelleme İsteğini Gönder
+    // Güncelleme İsteğini Gönder (Hangi görünümdeysek onun verisi gider)
     const handleSave = () => {
         if (!effectiveChannelId) return;
 
         const targetUserId = settingsView === 'editProfile' ? myRealUserId : selectedUserId;
+        const currentFirstName = settingsView === 'editProfile' ? profileFirstName : memberFirstName;
+        const currentLastName = settingsView === 'editProfile' ? profileLastName : memberLastName;
+
         if (!targetUserId) return;
 
         dispatch(updateChannelMember({
             channelId: effectiveChannelId,
             targetUserId: targetUserId,
-            firstName,
-            lastName
+            firstName: currentFirstName,
+            lastName: currentLastName
         })).then((result) => {
             if (!result.error) {
                 onClose();
@@ -218,16 +217,16 @@ const SettingsModal = ({ open, onClose }) => {
                                     variant="outlined"
                                     size="small"
                                     fullWidth
-                                    value={firstName}
-                                    onChange={(e) => setFirstName(e.target.value)}
+                                    value={profileFirstName}
+                                    onChange={(e) => setProfileFirstName(e.target.value)}
                                 />
                                 <TextField
                                     label="Soyadınız"
                                     variant="outlined"
                                     size="small"
                                     fullWidth
-                                    value={lastName}
-                                    onChange={(e) => setLastName(e.target.value)}
+                                    value={profileLastName}
+                                    onChange={(e) => setProfileLastName(e.target.value)}
                                 />
                             </div>
                         )}
@@ -271,16 +270,16 @@ const SettingsModal = ({ open, onClose }) => {
                                             variant="outlined"
                                             size="small"
                                             fullWidth
-                                            value={firstName}
-                                            onChange={(e) => setFirstName(e.target.value)}
+                                            value={memberFirstName}
+                                            onChange={(e) => setMemberFirstName(e.target.value)}
                                         />
                                         <TextField
                                             label="Üye Soyadı"
                                             variant="outlined"
                                             size="small"
                                             fullWidth
-                                            value={lastName}
-                                            onChange={(e) => setLastName(e.target.value)}
+                                            value={memberLastName}
+                                            onChange={(e) => setMemberLastName(e.target.value)}
                                         />
                                     </>
                                 )}
