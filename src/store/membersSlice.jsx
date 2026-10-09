@@ -54,11 +54,16 @@ export const fetchChannelMembers=createAsyncThunk('members/fetchChannelMembers',
             })
             .addCase(updateChannelMember.fulfilled , (state , action)=>{
                 const {targetUserId , firstName , lastName}=action.payload;
-                const member=state.list.find((m)=>m.user_id===targetUserId);
+                const member=state.list.find((m)=>String(m.user_id || m.id || m.user?.id) === String(targetUserId));
                 if(member)
                 {
                     member.first_name=firstName;
                     member.last_name=lastName;
+                    // Eğer nested user objesi varsa onun da adını güncelle
+                    if (member.user) {
+                        member.user.first_name = firstName;
+                        member.user.last_name = lastName;
+                    }
                 }
             })
         }

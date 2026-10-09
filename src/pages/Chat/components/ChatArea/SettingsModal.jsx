@@ -20,6 +20,7 @@ const SettingsModal = ({ open, onClose }) => {
 
     // Redux State'leri
     const activeChannel = useSelector((state) => state.chat.activeChannel);
+    const activeUserFromStore = useSelector((state) => state.chat.activeUser);
     const channelMembers = useSelector((state) => state.members.list || []);
 
     // Modal İçi Görünüm ve Form State'leri
@@ -28,8 +29,7 @@ const SettingsModal = ({ open, onClose }) => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
 
-    // --- KANAL ID YÖNETİMİ ---
-    // DM'deyken bile üye yönetimi yapabilmek için herkesin bulunduğu ana kanalın ID'sini hafızada tutuyoruz.
+    // Kanal ID Yönetimi (Sabit Ana Kanal Hafızası)
     const effectiveChannelId = useMemo(() => {
         if (activeChannel && !activeChannel.is_direct) {
             try {
@@ -37,25 +37,30 @@ const SettingsModal = ({ open, onClose }) => {
             } catch (e) {}
             return activeChannel.id;
         }
-        
         try {
             const savedMainId = localStorage.getItem('main_group_channel_id');
             if (savedMainId) return savedMainId;
         } catch (e) {}
-
         return activeChannel?.id || '';
     }, [activeChannel]);
 
-    // Oturum Açan Kullanıcının Gerçek ID'sini Bulma
+    // DÜZELTME: Oturum Açan Kullanıcının Gerçek ID'sini Kesin ve Güvenli Bulma
     const myRealUserId = useMemo(() => {
-        try {
-            const userStr = localStorage.getItem('user') || localStorage.getItem('currentUser') || localStorage.getItem('activeUser');
-            if (userStr) {
-                const parsed = JSON.parse(userStr);
-                if (parsed && (parsed.id || parsed.user_id)) return String(parsed.id || parsed.user_id);
-            }
-        } catch (e) {}
-
+        if (activeUserFromStore && (activeUserFromStore.id || activeUserFromStore.user_id)) {
+            return String(activeUserFromStore.id || activeUserFromStore.user_id);
+        }
+        const keys = ['user', 'currentUser', 'activeUser', 'chat_user'];
+        for (const key of keys) {
+            try {
+                const item = localStorage.getItem(key);
+                if (item) {
+                    const parsed = JSON.parse(item);
+                    if (parsed && (parsed.id || parsed.user_id)) {
+                        return String(parsed.id || parsed.user_id);
+                    }
+                }
+            } catch (e) {}
+        }
         try {
             const token = localStorage.getItem('token') || localStorage.getItem('access_token');
             if (token) {
@@ -66,7 +71,7 @@ const SettingsModal = ({ open, onClose }) => {
             }
         } catch (e) {}
         return '';
-    }, []);
+    }, [activeUserFromStore]);
 
     // Modal Açıldığında Ana Kanalın Üyelerini Çek
     useEffect(() => {
@@ -75,19 +80,18 @@ const SettingsModal = ({ open, onClose }) => {
         }
     }, [open, effectiveChannelId, dispatch]);
 
-    // Oturum Açan Kullanıcının Kanaldaki Verisi ve Rolü
+    // Oturum Açan Kullanıcının Kanaldaki Verisi
     const myMemberData = useMemo(() => {
         return channelMembers.find(m => String(m.user_id || m.id || m.user?.id) === myRealUserId);
     }, [channelMembers, myRealUserId]);
 
-    // --- KESİN VE GÜVENLİ ROL KONTROLÜ ---
-    // Asla localStorage'dan rol cache'lenmez! Sadece backend'den gelen üye verisindeki role bakılır.
+    // Rol Kontrolü (Sadece gerçek adminler görebilir)
     const isAdmin = useMemo(() => {
         const role = String(myMemberData?.role || '').toLowerCase();
         return role === 'admin';
     }, [myMemberData]);
 
-    // Admin'in üye düzenleme ekranında KENDİSİ HARİÇ diğer üyeler listelenir
+    // Admin hariç diğer üyeler
     const otherMembers = useMemo(() => {
         return channelMembers.filter(m => String(m.user_id || m.id || m.user?.id) !== myRealUserId);
     }, [channelMembers, myRealUserId]);
@@ -107,6 +111,7 @@ const SettingsModal = ({ open, onClose }) => {
         setSettingsView(view);
 
         if (view === 'editProfile') {
+            // Kesinlikle sadece oturum açan kullanıcının bilgileri yüklenir
             setFirstName(myMemberData?.first_name || myMemberData?.user?.first_name || '');
             setLastName(myMemberData?.last_name || myMemberData?.user?.last_name || '');
         } else if (view === 'editMembers') {
@@ -124,7 +129,7 @@ const SettingsModal = ({ open, onClose }) => {
         }
     };
 
-    // Admin Seçim Değiştirdiğinde
+    // Admin Üye Seçimini Değiştirdiğinde
     const handleMemberSelectChange = (event) => {
         const selectedId = String(event.target.value);
         setSelectedUserId(selectedId);
@@ -183,7 +188,6 @@ const SettingsModal = ({ open, onClose }) => {
                                     👤 Profilini Düzenle
                                 </Button>
 
-                                {/* SADECE GERÇEK ADMİNLER GÖrebilir */}
                                 {isAdmin && (
                                     <Button
                                         variant="outlined"
