@@ -18,7 +18,7 @@ import {
 const SettingsModal = ({ open, onClose }) => {
     const dispatch = useDispatch();
 
-    // Redux State'leri (Attığın chatSlice ve memberSlice ile birebir uyumlu)
+    // Redux State'leri
     const activeChannel = useSelector((state) => state.chat.activeChannel);
     const channelMembers = useSelector((state) => state.members.list || []);
 
@@ -28,26 +28,21 @@ const SettingsModal = ({ open, onClose }) => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
 
-    // --- AÇIKLAMA: SABİT ANA KANAL ID'Sİ YÖNETİMİ ---
-    // Backend'in istediği kural: "Üye güncelleme işlemi için herkesin olduğu ana grup kanalının ID'si lazımdır."
-    // 1. Eğer kullanıcı şu an normal bir grup kanalındaysa (is_direct değilse), bunu hemen localStorage'a "main_group_channel_id" olarak kaydediyoruz.
-    // 2. Kullanıcı DM'e geçse bile modal açıldığında bu localStorage'dan o ana kanalın ID'sini okuyacak, asla patlamayacak!
+    // --- KANALLAR ARASI GEÇİŞTE KOPMAYAN SABİT ANA KANAL ID MANTIĞI ---
+    // Kullanıcı hangi DM'e tıklarsa tıksın, ana kanal ID'sini localStorage'da sabit tutuyoruz.
     const effectiveChannelId = useMemo(() => {
         if (activeChannel && !activeChannel.is_direct) {
-            // Eğer aktif kanal grup kanalıysa hafızaya sabitle
             try {
                 localStorage.setItem('main_group_channel_id', activeChannel.id);
             } catch (e) {}
             return activeChannel.id;
         }
         
-        // Eğer şu an bir DM'deysek, daha önce hafızaya kaydettiğimiz ana kanal ID'sini alıyoruz
         try {
             const savedMainId = localStorage.getItem('main_group_channel_id');
             if (savedMainId) return savedMainId;
         } catch (e) {}
 
-        // Hiçbiri yoksa son çare aktif kanal ID'si
         return activeChannel?.id || '';
     }, [activeChannel]);
 
@@ -99,7 +94,23 @@ const SettingsModal = ({ open, onClose }) => {
     }, [channelMembers, myRealUserId]);
 
     const isChannelAdmin = String(myMemberData?.role).toLowerCase() === 'admin';
-    const isAdmin = isGlobalAdmin || isChannelAdmin;
+    
+    // --- ÇÖZÜM: ADMIN DURUMUNU HAFIZAYA (CACHE) ALMA ---
+    // DM'ler arası geçişte üye listesi değişse bile, admin hakkı localStorage'da cache'lenir 
+    // böylece butonlar bir daha asla kaybolmaz!
+    const isAdmin = useMemo(() => {
+        if (isGlobalAdmin || isChannelAdmin) {
+            try {
+                localStorage.setItem('is_main_admin', 'true');
+            } catch (e) {}
+            return true;
+        }
+        try {
+            return localStorage.getItem('is_main_admin') === 'true';
+        } catch (e) {
+            return false;
+        }
+    }, [isGlobalAdmin, isChannelAdmin]);
 
     // Admin'in üye düzenleme ekranında KENDİSİ HARİÇ diğer üyeler listelenir
     const otherMembers = useMemo(() => {
@@ -150,7 +161,7 @@ const SettingsModal = ({ open, onClose }) => {
         }
     };
 
-    // Güncelleme İsteğini Gönder (Backend'in istediği o sabit ana kanal ID'si ile gider)
+    // Güncelleme İsteğini Gönder
     const handleSave = () => {
         if (!effectiveChannelId) return;
 
@@ -158,7 +169,7 @@ const SettingsModal = ({ open, onClose }) => {
         if (!targetUserId) return;
 
         dispatch(updateChannelMember({
-            channelId: effectiveChannelId, // DM ID'si DEĞİL, Sabit Ana Kanal ID'si!
+            channelId: effectiveChannelId,
             targetUserId: targetUserId,
             firstName,
             lastName
