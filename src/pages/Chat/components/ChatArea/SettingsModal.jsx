@@ -20,7 +20,6 @@ const SettingsModal = ({ open, onClose }) => {
 
     // Redux State'leri
     const activeChannel = useSelector((state) => state.chat.activeChannel);
-    const channels = useSelector((state) => state.chat.channels || state.channels?.list || []);
     const channelMembers = useSelector((state) => state.members.list || []);
 
     // Modal İçi Görünüm ve Form State'leri
@@ -29,20 +28,8 @@ const SettingsModal = ({ open, onClose }) => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
 
-    // --- KESİN ÇÖZÜM: ORTAK / ANA KANAL ID'SİNİ SABİTLEME ---
-    // Kullanıcı hangi DM'e tıklarsa tıksın, üye yönetimi ve güncelleme için 
-    // her zaman herkesin bulunduğu ana grup kanalını (is_direct = false) seçiyoruz.
-    const commonChannel = useMemo(() => {
-        // Eğer şu an açık olan kanal zaten ana grup kanalısı ise onu al
-        if (activeChannel && !activeChannel.is_direct) {
-            return activeChannel;
-        }
-        // Değilse (şu an bir DM'desek), listeden is_direct == false olan ilk ana kanalı bul
-        return channels.find(c => !c.is_direct) || channels[0] || activeChannel;
-    }, [activeChannel, channels]);
-
-    // Backend'in istedigi o sabit ve ortak kanal ID'si
-    const effectiveChannelId = commonChannel?.id;
+    // --- TEMİZ ÇÖZÜM: Sadece şu an içinde bulunduğumuz kanalı kullanıyoruz ---
+    const effectiveChannelId = activeChannel?.id;
 
     // Oturum Açan Kullanıcının Gerçek ID'sini Bulma
     const myRealUserId = useMemo(() => {
@@ -66,33 +53,20 @@ const SettingsModal = ({ open, onClose }) => {
         return '';
     }, []);
 
-    // Global Admin Kontrolü
-    const isGlobalAdmin = useMemo(() => {
-        try {
-            const userStr = localStorage.getItem('user') || localStorage.getItem('currentUser') || localStorage.getItem('activeUser');
-            if (userStr) {
-                const parsed = JSON.parse(userStr);
-                const role = String(parsed?.role || parsed?.user_role || '').toLowerCase();
-                return role.includes('admin') || role.includes('owner') || parsed?.is_admin === true;
-            }
-        } catch (e) {}
-        return false;
-    }, []);
-
-    // Her Zaman Ortak/Ana Kanalın Üyelerini Çek
+    // Her Zaman SADECE AKTİF KANALIN Üyelerini Çek
     useEffect(() => {
         if (open && effectiveChannelId) {
             dispatch(fetchChannelMembers(effectiveChannelId));
         }
     }, [open, effectiveChannelId, dispatch]);
 
-    // Oturum Açan Kullanıcının Kanaldaki Verisi ve Rolü
+    // Oturum Açan Kullanıcının AKTİF KANALDAKİ Verisi ve Rolü
     const myMemberData = useMemo(() => {
         return channelMembers.find(m => String(m.user_id || m.id || m.user?.id) === myRealUserId);
     }, [channelMembers, myRealUserId]);
 
+    // YETKİ KONTROLÜ (Hack'siz ve Güvenli): Kullanıcı şu anki kanalda admin mi?
     const isChannelAdmin = String(myMemberData?.role).toLowerCase() === 'admin';
-    const isAdmin = isGlobalAdmin || isChannelAdmin;
 
     // Admin'in üye düzenleme ekranında KENDİSİ HARİÇ diğer üyeler listelenir
     const otherMembers = useMemo(() => {
@@ -143,7 +117,7 @@ const SettingsModal = ({ open, onClose }) => {
         }
     };
 
-    // Güncelleme İsteğini Gönder (Her Zaman Ortak/Ana Kanal ID'si ile gider)
+    // Güncelleme İsteğini Gönder (Şu anki temiz Kanal ID'si ile gider)
     const handleSave = () => {
         if (!effectiveChannelId) return;
 
@@ -151,7 +125,7 @@ const SettingsModal = ({ open, onClose }) => {
         if (!targetUserId) return;
 
         dispatch(updateChannelMember({
-            channelId: effectiveChannelId, // DM ID'si DEĞİL, Ortak Ana Kanal ID'si!
+            channelId: effectiveChannelId, // Artık DM veya Grup fark etmez, aktif olan gider!
             targetUserId: targetUserId,
             firstName,
             lastName
@@ -173,7 +147,7 @@ const SettingsModal = ({ open, onClose }) => {
             <DialogContent dividers>
                 {!effectiveChannelId ? (
                     <p className="settings-warning-text" style={{ padding: '20px', textAlign: 'center' }}>
-                        Ana kanal bilgisi yükleniyor...
+                        Kanal bilgisi yükleniyor...
                     </p>
                 ) : (
                     <div className="settings-modal-content">
@@ -190,14 +164,15 @@ const SettingsModal = ({ open, onClose }) => {
                                     👤 Profilini Düzenle
                                 </Button>
 
-                                {isAdmin && (
+                                {/* SADECE GRUP KANALIYSA VE ADMİNSE DİĞER ÜYELERİ DÜZENLE ÇIKAR */}
+                                {isChannelAdmin && !activeChannel?.is_direct && (
                                     <Button
                                         variant="outlined"
                                         fullWidth
                                         onClick={() => handleGoToView('editMembers')}
                                         style={{ justifyContent: 'flex-start', textTransform: 'none', padding: '10px 15px', fontSize: '16px' }}
                                     >
-                                        👥 Üye Bilgilerini Düzenle {commonChannel?.name ? `(${commonChannel.name})` : ''}
+                                        👥 Üye Bilgilerini Düzenle ({activeChannel?.name})
                                     </Button>
                                 )}
 
@@ -238,7 +213,7 @@ const SettingsModal = ({ open, onClose }) => {
                         {settingsView === 'editMembers' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingTop: '10px' }}>
                                 <Typography variant="caption" color="textSecondary">
-                                    Yönetilen Kanal: <strong>{commonChannel?.name || 'Ana Kanal'}</strong>
+                                    Yönetilen Kanal: <strong>{activeChannel?.name}</strong>
                                 </Typography>
 
                                 {otherMembers.length === 0 ? (
