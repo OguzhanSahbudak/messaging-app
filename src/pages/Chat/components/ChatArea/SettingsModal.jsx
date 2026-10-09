@@ -12,7 +12,8 @@ import {
     Select,
     MenuItem,
     FormControl,
-    InputLabel
+    InputLabel,
+    Typography
 } from '@mui/material';
 
 const SettingsModal = ({ open, onClose }) => {
@@ -20,8 +21,8 @@ const SettingsModal = ({ open, onClose }) => {
 
     // Redux State'leri
     const activeChannel = useSelector((state) => state.chat.activeChannel);
-    const dmList = useSelector((state) => state.chat.dmList);
-    const channelMembers = useSelector((state) => state.members.list);
+    const channels = useSelector((state) => state.chat.channels || state.channels?.list || []);
+    const channelMembers = useSelector((state) => state.members.list || []);
 
     // Modal İçi Görünüm ve Form State'leri
     const [settingsView, setSettingsView] = useState('menu'); // 'menu' | 'editProfile' | 'editMembers'
@@ -29,8 +30,21 @@ const SettingsModal = ({ open, onClose }) => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
 
-    // Home veya DMs sekmesinden bağımsız güvenli kanal ID'si
-    const effectiveChannelId = activeChannel?.id || dmList?.[0]?.id;
+    // 1. ORTAK GENEL KANAL: Tüm kullanıcıların üye olduğu ana grup kanalı
+    const commonChannel = useMemo(() => {
+        return channels.find(c => !c.is_direct) || channels[0] || null;
+    }, [channels]);
+
+    // 2. HEDEF KANAL SEÇİMİ: 
+    // Bir grup kanalındaysak o kanalı alır; DM'deysek veya kanal seçili değilse Ortak Genel Kanal'a düşer.
+    const targetChannel = useMemo(() => {
+        if (activeChannel && !activeChannel.is_direct) {
+            return activeChannel;
+        }
+        return commonChannel;
+    }, [activeChannel, commonChannel]);
+
+    const effectiveChannelId = targetChannel?.id;
 
     // Oturum Açan Kullanıcının Gerçek ID'sini Bulma
     const myRealUserId = useMemo(() => {
@@ -59,21 +73,18 @@ const SettingsModal = ({ open, onClose }) => {
         return '';
     }, []);
 
-    // Gerekli Kanal ve Üye Bilgilerini Çek
-    useEffect(() => {
-        if (open && !effectiveChannelId) {
-            dispatch(fetchMyDms());
-        }
-    }, [open, effectiveChannelId, dispatch]);
-
+    // Hedef Kanalın Üyelerini Çek
     useEffect(() => {
         if (open && effectiveChannelId) {
             dispatch(fetchChannelMembers(effectiveChannelId));
         }
     }, [open, effectiveChannelId, dispatch]);
 
-    // Kullanıcının Kanaldaki Verisi ve Rolü
-    const myMemberData = channelMembers.find(m => String(m.user_id || m.id || m.user?.id) === myRealUserId);
+    // Oturum Açan Kullanıcının Hedef Kanaldaki Verisi ve Rolü
+    const myMemberData = useMemo(() => {
+        return channelMembers.find(m => String(m.user_id || m.id || m.user?.id) === myRealUserId);
+    }, [channelMembers, myRealUserId]);
+
     const isAdmin = String(myMemberData?.role).toLowerCase() === 'admin';
 
     // Admin'in üye düzenleme ekranında KENDİSİ HARİÇ diğer üyeler listelenir
@@ -96,11 +107,11 @@ const SettingsModal = ({ open, onClose }) => {
         setSettingsView(view);
 
         if (view === 'editProfile') {
-            // Kendi Profilini Düzenle -> Giriş Yapan Kullanıcının Bilgileri Yüklenir
+            // Kendi Profilini Düzenle
             setFirstName(myMemberData?.first_name || myMemberData?.user?.first_name || '');
             setLastName(myMemberData?.last_name || myMemberData?.user?.last_name || '');
         } else if (view === 'editMembers') {
-            // Üye Bilgilerini Düzenle -> Kendisi Hariç İlk Üyenin Bilgileri Yüklenir
+            // Üye Bilgilerini Düzenle (Admin) -> Kendisi Hariç İlk Üyeyi Seç
             if (otherMembers.length > 0) {
                 const firstOther = otherMembers[0];
                 const firstId = String(firstOther.user_id || firstOther.id || firstOther.user?.id || '');
@@ -115,7 +126,7 @@ const SettingsModal = ({ open, onClose }) => {
         }
     };
 
-    // Admin Açılır Listeden Başka Bir Üye Seçtiğinde
+    // Admin Seçim Değiştirdiğinde
     const handleMemberSelectChange = (event) => {
         const selectedId = String(event.target.value);
         setSelectedUserId(selectedId);
@@ -131,11 +142,7 @@ const SettingsModal = ({ open, onClose }) => {
     const handleSave = () => {
         if (!effectiveChannelId) return;
 
-        // Ekrana göre hedef ID belirlenir:
-        // 'editProfile' -> Kendi ID'si (myRealUserId)
-        // 'editMembers' -> Seçilen Üyenin ID'si (selectedUserId)
         const targetUserId = settingsView === 'editProfile' ? myRealUserId : selectedUserId;
-
         if (!targetUserId) return;
 
         dispatch(updateChannelMember({
@@ -145,7 +152,7 @@ const SettingsModal = ({ open, onClose }) => {
             lastName
         })).then((result) => {
             if (!result.error) {
-                onClose(); // Başarılı ise modalı kapat
+                onClose();
             }
         });
     };
@@ -155,7 +162,7 @@ const SettingsModal = ({ open, onClose }) => {
             <DialogTitle>
                 {settingsView === 'menu' && 'Ayarlar'}
                 {settingsView === 'editProfile' && 'Profil Bilgilerini Düzenle'}
-                {settingsView === 'editMembers' && 'Kanal Üye Bilgilerini Düzenle'}
+                {settingsView === 'editMembers' && `Üye Bilgilerini Düzenle (${targetChannel?.name || 'Ortak Kanal'})`}
             </DialogTitle>
 
             <DialogContent dividers>
@@ -187,7 +194,7 @@ const SettingsModal = ({ open, onClose }) => {
                                         onClick={() => handleGoToView('editMembers')}
                                         style={{ justifyContent: 'flex-start', textTransform: 'none', padding: '10px 15px', fontSize: '16px' }}
                                     >
-                                        👥 Üye Bilgilerini Düzenle (Admin)
+                                        👥 Üye Bilgilerini Düzenle ({targetChannel?.name || 'Ortak Kanal'})
                                     </Button>
                                 )}
 
@@ -227,8 +234,12 @@ const SettingsModal = ({ open, onClose }) => {
                         {/* 3. GÖRÜNÜM: ADMİN İÇİN DİĞER ÜYELERİ DÜZENLEME */}
                         {settingsView === 'editMembers' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingTop: '10px' }}>
+                                <Typography variant="caption" color="textSecondary">
+                                    Yönetilen Kanal: <strong>{targetChannel?.name || 'Ortak Kanal'}</strong>
+                                </Typography>
+
                                 {otherMembers.length === 0 ? (
-                                    <p>Kanalda güncellenebilecek başka üye bulunamadı.</p>
+                                    <p>Bu kanalda güncellenebilecek başka üye bulunamadı.</p>
                                 ) : (
                                     <>
                                         <FormControl fullWidth size="small">
