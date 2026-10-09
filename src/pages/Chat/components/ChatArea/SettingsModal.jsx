@@ -28,8 +28,8 @@ const SettingsModal = ({ open, onClose }) => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
 
-    // --- KANALLAR ARASI GEÇİŞTE KOPMAYAN SABİT ANA KANAL ID MANTIĞI ---
-    // Kullanıcı hangi DM'e tıklarsa tıksın, ana kanal ID'sini localStorage'da sabit tutuyoruz.
+    // --- KANAL ID YÖNETİMİ ---
+    // DM'deyken bile üye yönetimi yapabilmek için herkesin bulunduğu ana kanalın ID'sini hafızada tutuyoruz.
     const effectiveChannelId = useMemo(() => {
         if (activeChannel && !activeChannel.is_direct) {
             try {
@@ -68,20 +68,7 @@ const SettingsModal = ({ open, onClose }) => {
         return '';
     }, []);
 
-    // Global Admin Kontrolü
-    const isGlobalAdmin = useMemo(() => {
-        try {
-            const userStr = localStorage.getItem('user') || localStorage.getItem('currentUser') || localStorage.getItem('activeUser');
-            if (userStr) {
-                const parsed = JSON.parse(userStr);
-                const role = String(parsed?.role || parsed?.user_role || '').toLowerCase();
-                return role.includes('admin') || role.includes('owner') || parsed?.is_admin === true;
-            }
-        } catch (e) {}
-        return false;
-    }, []);
-
-    // Modal Açıldığında Sabit Ana Kanalın Üyelerini Çek
+    // Modal Açıldığında Ana Kanalın Üyelerini Çek
     useEffect(() => {
         if (open && effectiveChannelId) {
             dispatch(fetchChannelMembers(effectiveChannelId));
@@ -93,24 +80,12 @@ const SettingsModal = ({ open, onClose }) => {
         return channelMembers.find(m => String(m.user_id || m.id || m.user?.id) === myRealUserId);
     }, [channelMembers, myRealUserId]);
 
-    const isChannelAdmin = String(myMemberData?.role).toLowerCase() === 'admin';
-    
-    // --- ÇÖZÜM: ADMIN DURUMUNU HAFIZAYA (CACHE) ALMA ---
-    // DM'ler arası geçişte üye listesi değişse bile, admin hakkı localStorage'da cache'lenir 
-    // böylece butonlar bir daha asla kaybolmaz!
+    // --- KESİN VE GÜVENLİ ROL KONTROLÜ ---
+    // Asla localStorage'dan rol cache'lenmez! Sadece backend'den gelen üye verisindeki role bakılır.
     const isAdmin = useMemo(() => {
-        if (isGlobalAdmin || isChannelAdmin) {
-            try {
-                localStorage.setItem('is_main_admin', 'true');
-            } catch (e) {}
-            return true;
-        }
-        try {
-            return localStorage.getItem('is_main_admin') === 'true';
-        } catch (e) {
-            return false;
-        }
-    }, [isGlobalAdmin, isChannelAdmin]);
+        const role = String(myMemberData?.role || '').toLowerCase();
+        return role === 'admin';
+    }, [myMemberData]);
 
     // Admin'in üye düzenleme ekranında KENDİSİ HARİÇ diğer üyeler listelenir
     const otherMembers = useMemo(() => {
@@ -208,6 +183,7 @@ const SettingsModal = ({ open, onClose }) => {
                                     👤 Profilini Düzenle
                                 </Button>
 
+                                {/* SADECE GERÇEK ADMİNLER GÖrebilir */}
                                 {isAdmin && (
                                     <Button
                                         variant="outlined"
