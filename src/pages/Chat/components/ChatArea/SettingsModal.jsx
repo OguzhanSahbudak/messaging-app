@@ -29,25 +29,20 @@ const SettingsModal = ({ open, onClose }) => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
 
-    // --- AKILLI KANAL SEÇİM MANTIĞI ---
-    // Eğer şu an activeChannel bir DM (is_direct = true) ise, 
-    // backend kuralına (admin olunan grup kanalı) takılmamak için 
-    // kullanıcının üye olduğu ilk normal grup kanalını (is_direct = false) buluyoruz.
-    const effectiveChannel = useMemo(() => {
-        // 1. Önce aktif kanal normal bir grup kanalı mı kontrol et
+    // --- KESİN ÇÖZÜM: ORTAK / ANA KANAL ID'SİNİ SABİTLEME ---
+    // Kullanıcı hangi DM'e tıklarsa tıksın, üye yönetimi ve güncelleme için 
+    // her zaman herkesin bulunduğu ana grup kanalını (is_direct = false) seçiyoruz.
+    const commonChannel = useMemo(() => {
+        // Eğer şu an açık olan kanal zaten ana grup kanalısı ise onu al
         if (activeChannel && !activeChannel.is_direct) {
             return activeChannel;
         }
-        // 2. Eğer DM'deysek veya aktif kanal yoksa, listeden ilk normal grup kanalını bul
-        const groupChannels = channels.filter(c => !c.is_direct);
-        if (groupChannels.length > 0) {
-            return groupChannels[0];
-        }
-        // Hiç yoksa aktif olanı dön (fallback)
-        return activeChannel;
+        // Değilse (şu an bir DM'desek), listeden is_direct == false olan ilk ana kanalı bul
+        return channels.find(c => !c.is_direct) || channels[0] || activeChannel;
     }, [activeChannel, channels]);
 
-    const effectiveChannelId = effectiveChannel?.id;
+    // Backend'in istedigi o sabit ve ortak kanal ID'si
+    const effectiveChannelId = commonChannel?.id;
 
     // Oturum Açan Kullanıcının Gerçek ID'sini Bulma
     const myRealUserId = useMemo(() => {
@@ -84,19 +79,18 @@ const SettingsModal = ({ open, onClose }) => {
         return false;
     }, []);
 
-    // Seçilen Kanalın Üyelerini Çek
+    // Her Zaman Ortak/Ana Kanalın Üyelerini Çek
     useEffect(() => {
         if (open && effectiveChannelId) {
             dispatch(fetchChannelMembers(effectiveChannelId));
         }
     }, [open, effectiveChannelId, dispatch]);
 
-    // Oturum Açan Kullanıcının Kanaldaki Verisi
+    // Oturum Açan Kullanıcının Kanaldaki Verisi ve Rolü
     const myMemberData = useMemo(() => {
         return channelMembers.find(m => String(m.user_id || m.id || m.user?.id) === myRealUserId);
     }, [channelMembers, myRealUserId]);
 
-    // Kanal Admini mi?
     const isChannelAdmin = String(myMemberData?.role).toLowerCase() === 'admin';
     const isAdmin = isGlobalAdmin || isChannelAdmin;
 
@@ -149,7 +143,7 @@ const SettingsModal = ({ open, onClose }) => {
         }
     };
 
-    // Güncelleme İsteğini Gönder (Her zaman grup kanalının ID'si ile gider)
+    // Güncelleme İsteğini Gönder (Her Zaman Ortak/Ana Kanal ID'si ile gider)
     const handleSave = () => {
         if (!effectiveChannelId) return;
 
@@ -157,7 +151,7 @@ const SettingsModal = ({ open, onClose }) => {
         if (!targetUserId) return;
 
         dispatch(updateChannelMember({
-            channelId: effectiveChannelId,
+            channelId: effectiveChannelId, // DM ID'si DEĞİL, Ortak Ana Kanal ID'si!
             targetUserId: targetUserId,
             firstName,
             lastName
@@ -179,7 +173,7 @@ const SettingsModal = ({ open, onClose }) => {
             <DialogContent dividers>
                 {!effectiveChannelId ? (
                     <p className="settings-warning-text" style={{ padding: '20px', textAlign: 'center' }}>
-                        Lütfen ayarlara erişmek için önce bir kanala tıklayın.
+                        Ana kanal bilgisi yükleniyor...
                     </p>
                 ) : (
                     <div className="settings-modal-content">
@@ -203,7 +197,7 @@ const SettingsModal = ({ open, onClose }) => {
                                         onClick={() => handleGoToView('editMembers')}
                                         style={{ justifyContent: 'flex-start', textTransform: 'none', padding: '10px 15px', fontSize: '16px' }}
                                     >
-                                        👥 Üye Bilgilerini Düzenle {effectiveChannel?.name ? `(${effectiveChannel.name})` : ''}
+                                        👥 Üye Bilgilerini Düzenle {commonChannel?.name ? `(${commonChannel.name})` : ''}
                                     </Button>
                                 )}
 
@@ -244,11 +238,11 @@ const SettingsModal = ({ open, onClose }) => {
                         {settingsView === 'editMembers' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', paddingTop: '10px' }}>
                                 <Typography variant="caption" color="textSecondary">
-                                    Kanal Havuzu: <strong>{effectiveChannel?.name || 'Grup Kanalı'}</strong>
+                                    Yönetilen Kanal: <strong>{commonChannel?.name || 'Ana Kanal'}</strong>
                                 </Typography>
 
                                 {otherMembers.length === 0 ? (
-                                    <p>Bu alanda güncellenebilecek başka üye bulunamadı.</p>
+                                    <p>Bu kanalda güncellenebilecek başka üye bulunamadı.</p>
                                 ) : (
                                     <>
                                         <FormControl fullWidth size="small">
