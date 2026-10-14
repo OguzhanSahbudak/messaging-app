@@ -102,6 +102,7 @@ const chatSlice = createSlice({
         activeTab: 'home',
         activeUser: getSafeLocalStorage('activeUser'),
         activeChannel: getSafeLocalStorage('activeChannel'),
+        searchResults:[],
         messages: [],
         dmList: [],
         loadingDms: false, // === EKLENDİ ===
@@ -120,12 +121,15 @@ const chatSlice = createSlice({
         },
         setActiveChannel: (state, action) => {
             state.activeChannel = action.payload;
-
+            state.searchResults = []; // Kanal değiştiğinde arama sonuçlarını sıfırla
             // DÜZELTME: Kullanıcıyı SİLMİYORUZ
             localStorage.setItem('activeChannel', JSON.stringify(action.payload));
         },
         setMessages: (state, action) => {
             state.messages = action.payload;
+        },
+        clearSearchResults:(state)=>{
+            state.searchResults=[];
         },
         addMessage: (state, action) => {
             const newMessage = action.payload;
@@ -256,11 +260,11 @@ const chatSlice = createSlice({
                 {
                     searchResult=resData.data;
                 }
-                state.messages=searchResult; //bulunan mesajları ekrana basma
+                state.searchResults=searchResult; //bulunan mesajları ekrana basma
             })
 
     }
 });
 
-export const { setActiveUser, setActiveChannel, setMessages, addMessage, setActiveTab, moveChannelToTop } = chatSlice.actions;
+export const { setActiveUser, setActiveChannel, setMessages, addMessage, setActiveTab, moveChannelToTop , clearSearchResults } = chatSlice.actions;
 export default chatSlice.reducer;

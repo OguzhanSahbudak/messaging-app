@@ -5,7 +5,7 @@ import api from '../../../../api/axiosInstance';
 
 const MessageList = ({ searchQuery = '' }) => {
     const dispatch = useDispatch();
-    const { messages, activeChannel, loadingMessages } = useSelector((state) => state.chat);
+    const { messages,searchResults, activeChannel, loadingMessages } = useSelector((state) => state.chat);
 
     const messagesEndRef = useRef(null);
     const containerRef = useRef(null);
@@ -14,6 +14,10 @@ const MessageList = ({ searchQuery = '' }) => {
     const isInitialLoadRef = useRef(true);
 
     const [hasMore, setHasMore] = useState(true);
+
+    // KİLİT HAMLE: Arama aktifse backend'den gelen searchResults'ı, değilse ana messages dizisini göster
+    const isSearching = Boolean(searchQuery && searchQuery.trim() !== '');
+    const displayedMessages = isSearching ? searchResults : messages;
 
     // GELİŞTİRİLMİŞ GÜVENLİ URL DÖNÜŞÜTÜRÜCÜ
     const getSafeFileUrl = (url) => {
@@ -56,12 +60,15 @@ const MessageList = ({ searchQuery = '' }) => {
     // Böylece aranan mesaj en altta kaybolup gitmiyor, kullanıcının gözünün önünde kalıyor.
 
     useEffect(() => {
-        if (!containerRef.current || messages.length === 0) return;
+        if (!containerRef.current || displayedMessages.length === 0) return;
 
         if (isPrependingRef.current) {
             isPrependingRef.current = false;
             return;
         }
+        // Arama yapılıyorsa otomatik en alta kaydırmayı durdur
+        if (isSearching) return;
+
         if (searchQuery && searchQuery.trim() !== '') {
             return; // eğer arama aktifse  en altta otomatik kaydırma yapma
         }
@@ -79,11 +86,16 @@ const MessageList = ({ searchQuery = '' }) => {
         } else {
             scrollToBottom();
         }
-    }, [messages, searchQuery]);
+    }, [displayedMessages, isSearching]);
 
     const handleScroll = () => {
         if (!containerRef.current) return;
         if (isInitialLoadRef.current) return;
+
+        // Arama aktifken scroll-pagination yapıp offset'i bozma
+        if (isSearching) return;
+
+        
 
         const { scrollTop, scrollHeight } = containerRef.current;
 
@@ -169,7 +181,7 @@ const MessageList = ({ searchQuery = '' }) => {
     };
 
     return (
-        <div className="chat-messages" ref={containerRef} onScroll={handleScroll}>
+        <div className="chat-messages" ref={containerRef} onScroll={handleScroll}  > 
 
             {loadingMessages && messages.length > 0 && (
                 <div style={{ textAlign: 'center', padding: '8px', fontSize: '12px', color: '#6B7280' }}>
@@ -177,7 +189,8 @@ const MessageList = ({ searchQuery = '' }) => {
                 </div>
             )}
 
-            {messages.map((msg, index) => {
+            {/* Artık displayedMessages haritalanıyor (Arama varsa arama sonuçları, yoksa taze mesajlar) */}
+            {displayedMessages.map((msg, index) => {
                 const isOwnMessage = String(msg.sender_id) === String(currentUserId);
                 const senderDisplayName = isOwnMessage
                     ? 'Sen'
@@ -185,25 +198,28 @@ const MessageList = ({ searchQuery = '' }) => {
 
                 const safeFileUrl = getSafeFileUrl(msg.file_url);
                 const messageText = msg.content || msg.message || '';
-                // AÇIKLAMA: FOSFOR (HIGHLIGHT) KONTROLÜ
-                // Aranan kelime, mesaj içeriğinde geçiyorsa 'isHighlighted' true olur.
-                const isHighlighted = searchQuery && searchQuery.trim() !== '' &&
-                    messageText.toLowerCase().includes(searchQuery.toLowerCase());
+                
+                const isHighlighted = isSearching && messageText.toLowerCase().includes(searchQuery.toLowerCase());
 
                 return (
-                    <div key={msg.id || index} className={`message-box ${isOwnMessage ? 'own-message' : ''}`}
+                    <div key={`${msg.id || 'msg'}-${index}`} className={`message-box ${isOwnMessage ? 'own-message' : ''}`}
                         // AÇIKLAMA: OTOMATİK ODAKLANMA SCROLL TO MATCH
                         // Eğer bu mesaj aranan kelimeyi içeriyorsa, ekran animasyonlu bir şekilde bu mesaja kayarak ortalar.
                         ref={isHighlighted ? (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : null}
                         style={{
-                            // Arka planı neredeyse şeffaf, çok yumuşak bir amber tonu yapıyoruz (Göz yormaz)
-                            backgroundColor: isHighlighted ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
-                            // Sol tarafa şık, modern bir vurgu çizgisi ekliyoruz
+                           backgroundColor: isHighlighted ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
                             borderLeft: isHighlighted ? '4px solid #F59E0B' : '4px solid transparent',
-                            paddingLeft: isHighlighted ? '12px' : '0px', // Çizgi gelince metin kaymasın diye hafif boşluk
+                            // React uyarılarını önlemek için shorthand 'padding' yerine ayrı ayrı tanımlandı
+                            paddingTop: '6px',
+                            paddingBottom: '6px',
+                            paddingRight: '8px',
+                            paddingLeft: isHighlighted ? '12px' : '8px',
                             borderRadius: '4px',
                             transition: 'all 0.3s ease',
-                            padding:'10px'
+                            // Responsive yapı için taşmayı önleyen kurallar
+                            maxWidth: '100%',
+                            boxSizing: 'border-box',
+                            wordBreak: 'break-word'
                         }}
                     >
 
