@@ -370,6 +370,30 @@
   color: #9CA3AF !important;
 }
 
+/* ==========================================
+   Mesaj Üç Nokta Menü Hizalama Stilleri
+   ========================================== */
+
+/* 1. Mesaj içerik alanını göreceli (relative) yapıyoruz ki üç nokta buna göre hizalansın */
+.message-text {
+  position: relative;
+}
+
+/* 2. Üç nokta ikonunun konumlandırma ve gizlenme kuralları */
+.message-actions-hover {
+position: absolute;
+  top: 50%;                    /* Dikeyde ortalamak için %50 yukarıdan */
+  transform: translateY(-50%); /* Kendi merkezine göre yukarı/aşağı tam oturtma */
+  left: 100%;                  /* Mesaj alanının bittiği sağ noktanın hemen dışı */
+  margin-left: 8px;            /* Mesajla ikon arasında tatlı bir boşluk */
+  display: none;
+  align-items: center;
+}
+
+/* 3. Mesaj kutusunun üzerine (hover) gelindiğinde üç noktayı görünür yap */
+.message-box:hover .message-actions-hover {
+  display: flex !important;
+}
 
 /* Responsive Tasarım */
 @media (max-width: 768px) {

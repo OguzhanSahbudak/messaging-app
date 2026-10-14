@@ -93,6 +93,19 @@ export const searchChannelMessages=createAsyncThunk(
     }
 )
 
+        // mesaj silme thunkı
+    export const deleteChannelMessage=createAsyncThunk(
+        'chat/deleteChannelMessage',
+        async ({channelId , messageId} , {rejectWithValue})=>{
+            try{
+                await api.delete(`channels/${channelId}/messages/${messageId}`);
+                return messageId; // Silinen mesajın ID'sini dönüyoruz ki state'ten silebilelim
+            }
+            catch(error){
+                return rejectWithValue(error.response?.data || 'Mesaj silinemedi')
+            }
+        }
+    )
 
 
 
@@ -261,6 +274,14 @@ const chatSlice = createSlice({
                     searchResult=resData.data;
                 }
                 state.searchResults=searchResult; //bulunan mesajları ekrana basma
+            })
+
+            //mesaj silme
+            .addCase(deleteChannelMessage.fulfilled , (state , action)=>{
+                const deleteId=action.payload;
+                // Hem ana mesaj listesinden hem de arama sonuçlarından silinen mesajı çıkarıyoruz
+                state.messages = state.messages.filter(msg => String(msg.id) !== String(deleteId));
+                state.searchResults = state.searchResults.filter(msg => String(msg.id) !== String(deleteId));
             })
 
     }

@@ -1,11 +1,15 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchChannelMessages } from '../../../../store/chatSlice';
+import { deleteChannelMessage, fetchChannelMessages } from '../../../../store/chatSlice';
 import api from '../../../../api/axiosInstance';
+import { IconButton, Menu, MenuItem } from '@mui/material';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { MdOutlineDeleteForever } from "react-icons/md";
+
 
 const MessageList = ({ searchQuery = '' }) => {
     const dispatch = useDispatch();
-    const { messages,searchResults, activeChannel, loadingMessages } = useSelector((state) => state.chat);
+    const { messages, searchResults, activeChannel, loadingMessages } = useSelector((state) => state.chat);
 
     const messagesEndRef = useRef(null);
     const containerRef = useRef(null);
@@ -14,6 +18,31 @@ const MessageList = ({ searchQuery = '' }) => {
     const isInitialLoadRef = useRef(true);
 
     const [hasMore, setHasMore] = useState(true);
+
+    // ÜÇ NOKTA MENÜ STATE'LERİ
+    const [anchorEl, setAnchorEl] = useState(null);
+    const [selectedMessage, setSelectedMessage] = useState(null);
+
+    const handleMenuClick = (e, msg) => {
+        if (e && e.currentTarget) {
+            setAnchorEl(e.currentTarget);
+        }
+        setSelectedMessage(msg)
+    }
+    const handleMenuClose = () => {
+        setAnchorEl(null);
+        setSelectedMessage(null);
+    };
+    //mesaj silme function
+    const handleDelete = () => {
+        if (!selectedMessage || !activeChannel?.id) return;
+        dispatch(deleteChannelMessage({
+            channelId: activeChannel.id,
+            messageId: selectedMessage.id
+        }));
+        handleMenuClose();
+    }
+
 
     // KİLİT HAMLE: Arama aktifse backend'den gelen searchResults'ı, değilse ana messages dizisini göster
     const isSearching = Boolean(searchQuery && searchQuery.trim() !== '');
@@ -95,7 +124,7 @@ const MessageList = ({ searchQuery = '' }) => {
         // Arama aktifken scroll-pagination yapıp offset'i bozma
         if (isSearching) return;
 
-        
+
 
         const { scrollTop, scrollHeight } = containerRef.current;
 
@@ -181,7 +210,7 @@ const MessageList = ({ searchQuery = '' }) => {
     };
 
     return (
-        <div className="chat-messages" ref={containerRef} onScroll={handleScroll}  > 
+        <div className="chat-messages" ref={containerRef} onScroll={handleScroll}  >
 
             {loadingMessages && messages.length > 0 && (
                 <div style={{ textAlign: 'center', padding: '8px', fontSize: '12px', color: '#6B7280' }}>
@@ -198,30 +227,31 @@ const MessageList = ({ searchQuery = '' }) => {
 
                 const safeFileUrl = getSafeFileUrl(msg.file_url);
                 const messageText = msg.content || msg.message || '';
-                
+
                 const isHighlighted = isSearching && messageText.toLowerCase().includes(searchQuery.toLowerCase());
 
                 return (
-                    <div key={`${msg.id || 'msg'}-${index}`} className={`message-box ${isOwnMessage ? 'own-message' : ''}`}
+                    <div key={`${msg.id || 'msg'}-${index}`} className={`message-box  ${isOwnMessage ? 'own-message' : ''}`}
                         // AÇIKLAMA: OTOMATİK ODAKLANMA SCROLL TO MATCH
                         // Eğer bu mesaj aranan kelimeyi içeriyorsa, ekran animasyonlu bir şekilde bu mesaja kayarak ortalar.
                         ref={isHighlighted ? (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : null}
                         style={{
-                           backgroundColor: isHighlighted ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
+                            position: 'relative',
+                            backgroundColor: isHighlighted ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
                             borderLeft: isHighlighted ? '4px solid #F59E0B' : '4px solid transparent',
-                            // React uyarılarını önlemek için shorthand 'padding' yerine ayrı ayrı tanımlandı
                             paddingTop: '6px',
                             paddingBottom: '6px',
                             paddingRight: '8px',
                             paddingLeft: isHighlighted ? '12px' : '8px',
                             borderRadius: '4px',
                             transition: 'all 0.3s ease',
-                            // Responsive yapı için taşmayı önleyen kurallar
                             maxWidth: '100%',
                             boxSizing: 'border-box',
                             wordBreak: 'break-word'
                         }}
                     >
+
+
 
                         <div
                             className="message-avatar"
@@ -241,8 +271,21 @@ const MessageList = ({ searchQuery = '' }) => {
                                 </span>
                             </div>
 
+                            {/* Üç nokta butonu doğrudan mesaj balonunun (.message-text) içine konumlandırıldı */}
                             <div className="message-text">
                                 {msg.content || msg.message}
+
+                                {isOwnMessage && (
+                                    <div className="message-actions-hover">
+                                        <IconButton
+                                            size="small"
+                                            onClick={(e) => handleMenuClick(e, msg)}
+                                            sx={{ color: 'var(--text-muted)', padding: '2px' }}
+                                        >
+                                            <MoreVertIcon fontSize="small" />
+                                        </IconButton>
+                                    </div>
+                                )}
 
                                 {msg.file_url && (
                                     <div style={{ marginTop: '8px' }}>
@@ -291,6 +334,25 @@ const MessageList = ({ searchQuery = '' }) => {
                     </div>
                 );
             })}
+            {/* === AÇILIR İŞLEM MENÜSÜ (DROPDOWN) === */}
+            <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+                slotProps={{
+                    paper: {
+                        elevation: 2,
+                        sx: { minWidth: '120px', borderRadius: '8px' }
+                    }
+                }}
+            >
+                <MenuItem onClick={handleDelete} sx={{ color: '#EF4444', fontSize: '1rem', gap: '8px' }}>
+                    <MdOutlineDeleteForever/> Sil
+                </MenuItem>
+                
+                {/* İleride buraya "Düzenle" seçeneğini de ekleyebileceğiz */}
+            </Menu>
+
             <div ref={messagesEndRef} />
         </div>
     );
