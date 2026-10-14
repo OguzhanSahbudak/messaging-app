@@ -75,6 +75,23 @@ export const fetchChannelMessages = createAsyncThunk(
     }
 );
 
+// mesajlarda Arama yapma
+export const searchChannelMessages=createAsyncThunk(
+    'chat/searchChannelMessages',
+    async ({channelId , query},{rejectWithValue})=>{
+        try
+        {
+            const response =await api.get(`channels/${channelId}/messages/search`,{
+                params:{q:query}
+            });
+            return response.data; // gelen arama sonuçları
+
+        }
+        catch(error){
+            return rejectWithValue(error.response?.data || 'Arama yapılırken hata oluştu')
+        }
+    }
+)
 
 
 
@@ -221,6 +238,25 @@ const chatSlice = createSlice({
                 } else {
                     state.messages = [...fetchedMessages, ...state.messages];
                 }
+            })
+
+            //arama addcase
+            .addCase(searchChannelMessages.fulfilled , (state , action)=>{
+                let searchResult=[];
+                const resData=action.payload;
+                if(Array.isArray(resData))
+                {
+                    searchResult=resData;
+                }
+                else if(resData && Array.isArray(resData.messages))
+                {
+                    searchResult=resData.messages;
+                }
+                else if(resData && Array.isArray(resData.data))
+                {
+                    searchResult=resData.data;
+                }
+                state.messages=searchResult; //bulunan mesajları ekrana basma
             })
 
     }

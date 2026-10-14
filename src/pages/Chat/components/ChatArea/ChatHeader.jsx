@@ -1,21 +1,20 @@
 
 import React, { useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { IconButton, Tooltip } from '@mui/material';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import { fetchChannelMessages, searchChannelMessages } from '../../../../store/chatSlice';
+import { act } from 'react';
 
 
-const ChatHeader = ({ onMenuClick }) => {
+const ChatHeader = ({ onMenuClick , searchQuery , setSearchQuery }) => {
 
-    
+    const dispatch=useDispatch();
     // GÜNCELLEME: Hem activeChannel hem activeUser doğrudan Redux'tan çekiliyor
     const { activeChannel, activeUser } = useSelector((state) => state.chat);
 
-    
 
-    // Kullanıcının kanaldaki rolü admin mi kontrolü
-    const isAdmin =  activeChannel?.role === 'admin';
     
 
     const displayName=(activeUser?.first_name || activeUser?.last_name)
@@ -23,6 +22,30 @@ const ChatHeader = ({ onMenuClick }) => {
     :activeUser?.email || 'Seçili Kullanıcı Yok';
 
     const avatarLetter=displayName.charAt(0).toUpperCase();
+
+   const handleSearchChange=(e)=>{
+    const query=e.target.value;
+    setSearchQuery(query);
+    // Üst bileşene (ChatArea) aranan kelimeyi bildiriyoruz ki fosfor efekti verilebilsin
+        if (setSearchQueryState) {
+            setSearchQueryState(query);
+        }
+        if(!activeChannel?.id){return;}
+        if(!query.trim())
+        {
+            // Arama kutusu temizlendiyse normal kanal mesajlarını geri yükle
+            dispatch(fetchChannelMessages(activeChannel.id))
+        }
+        else
+        {
+            //anlık olarak backende arama isteği at
+            dispatch(searchChannelMessages({
+                channelId:activeChannel.id,
+                query:query.trim()
+            }));
+        }
+
+   }
 
     return (
         <>
@@ -77,7 +100,8 @@ const ChatHeader = ({ onMenuClick }) => {
             
             <div className="search-box">
                 <SearchRoundedIcon fontSize="small" sx={{ color: 'var(--text-muted)' }} />
-                <input type="text" className="search-input" placeholder="Sohbette ara..." />
+                <input type="text" className="search-input" placeholder="Sohbette ara..."
+                value={searchQuery || ''}  onChange={handleSearchChange}/>
             </div>
         </div>
         

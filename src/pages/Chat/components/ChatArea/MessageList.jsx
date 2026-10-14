@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { fetchChannelMessages } from '../../../../store/chatSlice';
 import api from '../../../../api/axiosInstance';
 
-const MessageList = () => {
+const MessageList = ({ searchQuery = '' }) => {
     const dispatch = useDispatch();
     const { messages, activeChannel, loadingMessages } = useSelector((state) => state.chat);
 
@@ -51,6 +51,10 @@ const MessageList = () => {
         isInitialLoadRef.current = true;
     }, [activeChannel?.id]);
 
+    // AÇIKLAMA: SCROLL KONTROLÜ
+    // Kullanıcı arama yapıyorsa (searchQuery doluysa), mesajlar değiştiğinde en alta otomatik kaydırmayı durduruyoruz.
+    // Böylece aranan mesaj en altta kaybolup gitmiyor, kullanıcının gözünün önünde kalıyor.
+
     useEffect(() => {
         if (!containerRef.current || messages.length === 0) return;
 
@@ -58,6 +62,10 @@ const MessageList = () => {
             isPrependingRef.current = false;
             return;
         }
+        if (searchQuery && searchQuery.trim() !== '') {
+            return; // eğer arama aktifse  en altta otomatik kaydırma yapma
+        }
+
 
         if (isInitialLoadRef.current) {
             requestAnimationFrame(() => {
@@ -71,7 +79,7 @@ const MessageList = () => {
         } else {
             scrollToBottom();
         }
-    }, [messages]);
+    }, [messages, searchQuery]);
 
     const handleScroll = () => {
         if (!containerRef.current) return;
@@ -176,9 +184,28 @@ const MessageList = () => {
                     : (msg.sender_name || activeChannel?.name || 'Kullanıcı');
 
                 const safeFileUrl = getSafeFileUrl(msg.file_url);
+                const messageText = msg.content || msg.message || '';
+                // AÇIKLAMA: FOSFOR (HIGHLIGHT) KONTROLÜ
+                // Aranan kelime, mesaj içeriğinde geçiyorsa 'isHighlighted' true olur.
+                const isHighlighted = searchQuery && searchQuery.trim() !== '' &&
+                    messageText.toLowerCase().includes(searchQuery.toLowerCase());
 
                 return (
-                    <div key={msg.id || index} className={`message-box ${isOwnMessage ? 'own-message' : ''}`}>
+                    <div key={msg.id || index} className={`message-box ${isOwnMessage ? 'own-message' : ''}`}
+                        // AÇIKLAMA: OTOMATİK ODAKLANMA SCROLL TO MATCH
+                        // Eğer bu mesaj aranan kelimeyi içeriyorsa, ekran animasyonlu bir şekilde bu mesaja kayarak ortalar.
+                        ref={isHighlighted ? (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : null}
+                        style={{
+                            // Arka planı neredeyse şeffaf, çok yumuşak bir amber tonu yapıyoruz (Göz yormaz)
+                            backgroundColor: isHighlighted ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
+                            // Sol tarafa şık, modern bir vurgu çizgisi ekliyoruz
+                            borderLeft: isHighlighted ? '4px solid #F59E0B' : '4px solid transparent',
+                            paddingLeft: isHighlighted ? '12px' : '0px', // Çizgi gelince metin kaymasın diye hafif boşluk
+                            borderRadius: '4px',
+                            transition: 'all 0.3s ease',
+                            padding:'10px'
+                        }}
+                    >
 
                         <div
                             className="message-avatar"

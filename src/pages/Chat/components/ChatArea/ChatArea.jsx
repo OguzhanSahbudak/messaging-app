@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
@@ -7,25 +7,19 @@ import { addMessage, fetchChannelMessages, moveChannelToTop } from '../../../../
 import { useChatWebSocket } from '../../../../hooks/useChatWebSocket';
 import api from '../../../../api/axiosInstance'
 
-// JWT Token'dan kullanıcı ID'sini çözen yardımcı fonksiyon
-const getUserIdFromToken = () => {
-    const token = localStorage.getItem('token');
-    if (!token) return null;
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        return payload.sub || payload.user_id || payload.id;
-    } catch (e) {
-        return null;
-    }
-};
+
 
 const ChatArea = ({ toggleMobileSidebar }) => {
     const dispatch = useDispatch();
     const { activeUser, activeChannel } = useSelector((state) => state.chat);
 
+    // --- YENİ: Arama metni state'ini ortak ebeveyn olan ChatArea'da tutuyoruz ---
+    const [searchQuery, setSearchQuery] = useState('');
+
     // Aktif kanal değiştiğinde geçmiş mesajları çek
     useEffect(() => {
         if (activeChannel?.id) {
+            setSearchQuery('');
             dispatch(fetchChannelMessages({ channelId: activeChannel.id, offset: 0, limit: 50 }));
         }
     }, [dispatch, activeChannel?.id]);
@@ -103,8 +97,8 @@ const ChatArea = ({ toggleMobileSidebar }) => {
 
     return (
         <div className="chat-main-area">
-            <ChatHeader onMenuClick={toggleMobileSidebar} />
-            <MessageList />
+            <ChatHeader onMenuClick={toggleMobileSidebar} searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+            <MessageList searchQuery={searchQuery} />
             <MessageInput activeUser={activeUser} activeChannel={activeChannel} sendMessage={handleSendMessage} sendFileMessage={handleSendFileMessage} />
         </div>
     );
