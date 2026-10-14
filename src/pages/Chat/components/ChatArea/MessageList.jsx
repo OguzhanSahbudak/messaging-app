@@ -170,6 +170,33 @@ const MessageList = ({ searchQuery = '' }) => {
         }
     };
 
+    //Bugün, Dün veya Tarih hesaplayan fonksiyon
+    const getDateSeparatorText = (isoString) => {
+        if (!isoString) return '';
+        try {
+            const date = new Date(isoString);
+            const now = new Date();
+
+            const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            const diffDays = Math.round((today - messageDate) / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 0) {
+                return 'Bugün';
+            } else if (diffDays === 1) {
+                return 'Dün';
+            } else if (date.getFullYear() === now.getFullYear()) {
+                return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+            } else {
+                return date.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            }
+        } catch {
+            return '';
+        }
+    };
+
+
     // YENİ VE HATASIZ İNDİRME FONKSİYONU (Fetch API ile yeni sayfa açmadan doğrudan indirir)
     const handleDownload = async (fileUrl, fileName) => {
         const safeUrl = getSafeFileUrl(fileUrl);
@@ -230,108 +257,128 @@ const MessageList = ({ searchQuery = '' }) => {
 
                 const isHighlighted = isSearching && messageText.toLowerCase().includes(searchQuery.toLowerCase());
 
+                // WhatsApp Tarzı Tarih Ayırıcı Kontrolü
+                const currentDateText = getDateSeparatorText(msg.created_at);
+                const prevMessage = displayedMessages[index - 1];
+                const prevDateText = prevMessage ? getDateSeparatorText(prevMessage.created_at) : null;
+                
+                // Eğer bu ilk mesajsa veya bir önceki mesajdan farklı bir güne aitse tarih başlığı göster
+                const showDateSeparator = index === 0 || currentDateText !== prevDateText;
+
                 return (
-                    <div key={`${msg.id || 'msg'}-${index}`} className={`message-box  ${isOwnMessage ? 'own-message' : ''}`}
-                        // AÇIKLAMA: OTOMATİK ODAKLANMA SCROLL TO MATCH
-                        // Eğer bu mesaj aranan kelimeyi içeriyorsa, ekran animasyonlu bir şekilde bu mesaja kayarak ortalar.
-                        ref={isHighlighted ? (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : null}
-                        style={{
-                            position: 'relative',
-                            backgroundColor: isHighlighted ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
-                            borderLeft: isHighlighted ? '4px solid #F59E0B' : '4px solid transparent',
-                            paddingTop: '6px',
-                            paddingBottom: '6px',
-                            paddingRight: '8px',
-                            paddingLeft: isHighlighted ? '12px' : '8px',
-                            borderRadius: '4px',
-                            transition: 'all 0.3s ease',
-                            maxWidth: '100%',
-                            boxSizing: 'border-box',
-                            wordBreak: 'break-word'
-                        }}
-                    >
+                    <React.Fragment key={`${msg.id || 'msg'}-${index}`}>
+                        {/* WhatsApp Tarzı Tarih Bandı */}
+                        {showDateSeparator && currentDateText && (
+                            <div className='message-date-separator' >
+                                <span className='message-date-badge'>
+                                    {currentDateText}
+                                </span>
+                            </div>
+                        )}
 
-
-
-                        <div
-                            className="message-avatar"
-                            style={isOwnMessage ? { backgroundColor: '#10B981', color: 'white' } : {}}
+                        <div className={`message-box  ${isOwnMessage ? 'own-message' : ''}`}
+                            // AÇIKLAMA: OTOMATİK ODAKLANMA SCROLL TO MATCH
+                            // Eğer bu mesaj aranan kelimeyi içeriyorsa, ekran animasyonlu bir şekilde bu mesaja kayarak ortalar.
+                            
+                            ref={isHighlighted ? (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : null}
+                            style={{
+                                position: 'relative',
+                                backgroundColor: isHighlighted ? 'rgba(245, 158, 11, 0.08)' : 'transparent',
+                                borderLeft: isHighlighted ? '4px solid #F59E0B' : '4px solid transparent',
+                                paddingTop: '6px',
+                                paddingBottom: '6px',
+                                paddingRight: '8px',
+                                paddingLeft: isHighlighted ? '12px' : '8px',
+                                borderRadius: '4px',
+                                transition: 'all 0.3s ease',
+                                maxWidth: '100%',
+                                boxSizing: 'border-box',
+                                wordBreak: 'break-word'
+                            }}
                         >
-                            {senderDisplayName.charAt(0).toUpperCase()}
-                        </div>
 
-                        <div className="message-content">
-                            <div className="message-content-header">
-                                <span className="message-sender">
-                                    {senderDisplayName}
-                                </span>
 
-                                <span className="message-time">
-                                    {msg.created_at ? formatTime(msg.created_at) : (msg.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}
-                                </span>
+
+                            <div
+                                className="message-avatar"
+                                style={isOwnMessage ? { backgroundColor: '#10B981', color: 'white' } : {}}
+                            >
+                                {senderDisplayName.charAt(0).toUpperCase()}
                             </div>
 
-                            {/* Üç nokta butonu doğrudan mesaj balonunun (.message-text) içine konumlandırıldı */}
-                            <div className="message-text">
-                                {msg.content || msg.message}
+                            <div className="message-content">
+                                <div className="message-content-header">
+                                    <span className="message-sender">
+                                        {senderDisplayName}
+                                    </span>
 
-                                {isOwnMessage && (
-                                    <div className="message-actions-hover">
-                                        <IconButton
-                                            size="small"
-                                            onClick={(e) => handleMenuClick(e, msg)}
-                                            sx={{ color: 'var(--text-muted)', padding: '2px' }}
-                                        >
-                                            <MoreVertIcon fontSize="small" />
-                                        </IconButton>
-                                    </div>
-                                )}
+                                    <span className="message-time">
+                                        {msg.created_at ? formatTime(msg.created_at) : (msg.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}
+                                    </span>
+                                </div>
 
-                                {msg.file_url && (
-                                    <div style={{ marginTop: '8px' }}>
-                                        {msg.file_url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
-                                            <div style={{ position: 'relative', display: 'inline-block', cursor: 'pointer' }} onClick={() => handleDownload(msg.file_url, msg.file_name || msg.filename || 'resim')}>
-                                                <img
-                                                    src={safeFileUrl}
-                                                    alt="Eklenen dosya"
-                                                    style={{ maxWidth: '100%', borderRadius: '8px', maxHeight: '200px', objectFit: 'cover', display: 'block' }}
-                                                />
-                                                <div style={{ fontSize: '0.75rem', color: '#fff', backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px', position: 'absolute', bottom: '6px', right: '6px' }}>
-                                                    İndir ⬇
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div
-                                                onClick={() => handleDownload(msg.file_url, msg.file_name || msg.filename || msg.file_url.split('/').pop())}
-                                                style={{
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px',
-                                                    padding: '8px 12px',
-                                                    backgroundColor: 'rgba(0,0,0,0.05)',
-                                                    borderRadius: '6px',
-                                                    color: 'var(--brand-primary, #4338CA)',
-                                                    textDecoration: 'none',
-                                                    fontSize: '0.85rem',
-                                                    wordBreak: 'break-all',
-                                                    cursor: 'pointer',
-                                                    transition: 'background 0.2s'
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.1)'}
-                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.05)'}
+                                {/* Üç nokta butonu doğrudan mesaj balonunun (.message-text) içine konumlandırıldı */}
+                                <div className="message-text">
+                                    {msg.content || msg.message}
+
+                                    {isOwnMessage && (
+                                        <div className="message-actions-hover">
+                                            <IconButton
+                                                size="small"
+                                                onClick={(e) => handleMenuClick(e, msg)}
+                                                sx={{ color: 'var(--text-muted)', padding: '2px' }}
                                             >
-                                                <span>📎</span>
-                                                <span style={{ textDecoration: 'underline' }}>
-                                                    {msg.file_name || msg.filename || msg.file_url.split('/').pop()}
-                                                </span>
-                                                <span style={{ fontSize: '0.75rem', marginLeft: '4px' }}>⬇</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                                <MoreVertIcon fontSize="small" />
+                                            </IconButton>
+                                        </div>
+                                    )}
+
+                                    {msg.file_url && (
+                                        <div style={{ marginTop: '8px' }}>
+                                            {msg.file_url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
+                                                <div style={{ position: 'relative', display: 'inline-block', cursor: 'pointer' }} onClick={() => handleDownload(msg.file_url, msg.file_name || msg.filename || 'resim')}>
+                                                    <img
+                                                        src={safeFileUrl}
+                                                        alt="Eklenen dosya"
+                                                        style={{ maxWidth: '100%', borderRadius: '8px', maxHeight: '200px', objectFit: 'cover', display: 'block' }}
+                                                    />
+                                                    <div style={{ fontSize: '0.75rem', color: '#fff', backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px', position: 'absolute', bottom: '6px', right: '6px' }}>
+                                                        İndir ⬇
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    onClick={() => handleDownload(msg.file_url, msg.file_name || msg.filename || msg.file_url.split('/').pop())}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        padding: '8px 12px',
+                                                        backgroundColor: 'rgba(0,0,0,0.05)',
+                                                        borderRadius: '6px',
+                                                        color: 'var(--brand-primary, #4338CA)',
+                                                        textDecoration: 'none',
+                                                        fontSize: '0.85rem',
+                                                        wordBreak: 'break-all',
+                                                        cursor: 'pointer',
+                                                        transition: 'background 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.1)'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.05)'}
+                                                >
+                                                    <span>📎</span>
+                                                    <span style={{ textDecoration: 'underline' }}>
+                                                        {msg.file_name || msg.filename || msg.file_url.split('/').pop()}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.75rem', marginLeft: '4px' }}>⬇</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </React.Fragment>
                 );
             })}
             {/* === AÇILIR İŞLEM MENÜSÜ (DROPDOWN) === */}
