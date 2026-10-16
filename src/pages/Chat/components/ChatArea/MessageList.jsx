@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { deleteChannelMessage, fetchChannelMessages } from '../../../../store/chatSlice';
+import { deleteChannelMessage, fetchChannelMessages, updateChannel, updateChannelMessage } from '../../../../store/chatSlice';
 import api from '../../../../api/axiosInstance';
-import { IconButton, Menu, MenuItem } from '@mui/material';
+import { IconButton, Menu, MenuItem, TextField, Button } from '@mui/material'; // TextField ve Button eklendi
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { MdOutlineDeleteForever } from "react-icons/md";
+import { FiEdit2 } from "react-icons/fi";
 
 
 const MessageList = ({ searchQuery = '' }) => {
@@ -22,6 +23,12 @@ const MessageList = ({ searchQuery = '' }) => {
     // ÜÇ NOKTA MENÜ STATE'LERİ
     const [anchorEl, setAnchorEl] = useState(null);
     const [selectedMessage, setSelectedMessage] = useState(null);
+
+    // === MESAJ DÜZENLEME (EDIT) STATE'LERİ ===
+    // Hangi mesajın düzenleme modunda olduğunu tutar (message id veya null)
+    const [editingMessageId , setEditingMessageId]=useState(null)
+    //düzenleme inputunun anlık metin içeriği
+    const [editText , setEditText]=useState('');
 
     const handleMenuClick = (e, msg) => {
         if (e && e.currentTarget) {
@@ -42,6 +49,43 @@ const MessageList = ({ searchQuery = '' }) => {
         }));
         handleMenuClose();
     }
+
+    // === DÜZENLEME MODUNU BAŞLATMA FONKSİYONU ===
+    const handleStartEdit=()=>{
+        if(!selectedMessage) return;
+        setEditingMessageId(selectedMessage.id);
+        setEditText(selectedMessage.content || selectedMessage.message || '');
+        handleMenuClose();
+    }
+
+    //Düzenlemeyi iptal etme
+    const handleCancelEdit=()=>{
+        setEditingMessageId(null);
+        setEditText('');
+    }
+
+    // === GÜNCELLEMEYİ KAYDETME (API ÇAĞRISI) ===
+    const handleSaveEdit=(msgId)=>{
+        if(!editText.trim() || !activeChannel?.id) return;
+        dispatch(updateChannelMessage({
+            channelId:activeChannel.id,
+            messageId:msgId,
+            content:editText.trim()
+        }))
+        setEditingMessageId(null);
+        setEditText('');
+    }
+
+    // Klavye kısayolları (Enter ile kaydet, Escape ile iptal et)
+    const handleKeyDown = (e, msgId) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSaveEdit(msgId);
+        } else if (e.key === 'Escape') {
+            handleCancelEdit();
+        }
+    };
+
 
 
     // KİLİT HAMLE: Arama aktifse backend'den gelen searchResults'ı, değilse ana messages dizisini göster
@@ -257,6 +301,9 @@ const MessageList = ({ searchQuery = '' }) => {
 
                 const isHighlighted = isSearching && messageText.toLowerCase().includes(searchQuery.toLowerCase());
 
+                // Bu mesaj şu an düzenleme modunda mı?
+                const isEditing = editingMessageId === msg.id;
+
                 // WhatsApp Tarzı Tarih Ayırıcı Kontrolü
                 const currentDateText = getDateSeparatorText(msg.created_at);
                 const prevMessage = displayedMessages[index - 1];
@@ -317,23 +364,57 @@ const MessageList = ({ searchQuery = '' }) => {
                                     </span>
                                 </div>
 
-                                {/* Üç nokta butonu doğrudan mesaj balonunun (.message-text) içine konumlandırıldı */}
+                                {/* Mesaj metni / Düzenleme modu görünümü */}
                                 <div className="message-text">
-                                    {msg.content || msg.message}
-
-                                    {isOwnMessage && (
-                                        <div className="message-actions-hover">
-                                            <IconButton
+                                    {isEditing ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '250px' }}>
+                                            <TextField
+                                                fullWidth
                                                 size="small"
-                                                onClick={(e) => handleMenuClick(e, msg)}
-                                                sx={{ color: 'var(--text-muted)', padding: '2px' }}
-                                            >
-                                                <MoreVertIcon fontSize="small" />
-                                            </IconButton>
+                                                value={editText}
+                                                onChange={(e) => setEditText(e.target.value)}
+                                                onKeyDown={(e) => handleKeyDown(e, msg.id)}
+                                                autoFocus
+                                                multiline
+                                                sx={{ backgroundColor: '#fff', borderRadius: '4px' }}
+                                            />
+                                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                                <Button 
+                                                    size="small" 
+                                                    onClick={handleCancelEdit} 
+                                                    sx={{ textTransform: 'none', color: '#6B7280', fontSize: '0.75rem' }}
+                                                >
+                                                    İptal
+                                                </Button>
+                                                <Button 
+                                                    size="small" 
+                                                    variant="contained" 
+                                                    onClick={() => handleSaveEdit(msg.id)}
+                                                    sx={{ textTransform: 'none', backgroundColor: 'var(--brand-primary)', fontSize: '0.75rem' }}
+                                                >
+                                                    Kaydet
+                                                </Button>
+                                            </div>
                                         </div>
+                                    ) : (
+                                        <>
+                                            {messageText}
+
+                                            {isOwnMessage && (
+                                                <div className="message-actions-hover">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => handleMenuClick(e, msg)}
+                                                        sx={{ color: 'var(--text-muted)', padding: '2px' }}
+                                                    >
+                                                        <MoreVertIcon fontSize="small" />
+                                                    </IconButton>
+                                                </div>
+                                            )}
+                                        </>
                                     )}
 
-                                    {msg.file_url && (
+                                    {msg.file_url && !isEditing && (
                                         <div style={{ marginTop: '8px' }}>
                                             {msg.file_url.match(/\.(jpeg|jpg|gif|png)$/i) ? (
                                                 <div style={{ position: 'relative', display: 'inline-block', cursor: 'pointer' }} onClick={() => handleDownload(msg.file_url, msg.file_name || msg.filename || 'resim')}>
@@ -393,11 +474,15 @@ const MessageList = ({ searchQuery = '' }) => {
                     }
                 }}
             >
+                {/* 1. Düzenle Seçeneği */}
+                <MenuItem onClick={handleStartEdit} sx={{ color: 'var(--text-dark)', fontSize: '0.95rem', gap: '8px' }}>
+                    <FiEdit2 /> Düzenle
+                </MenuItem>
+
+                {/* 2. Sil Seçeneği */}
                 <MenuItem onClick={handleDelete} sx={{ color: '#EF4444', fontSize: '1rem', gap: '8px' }}>
                     <MdOutlineDeleteForever/> Sil
                 </MenuItem>
-                
-                {/* İleride buraya "Düzenle" seçeneğini de ekleyebileceğiz */}
             </Menu>
 
             <div ref={messagesEndRef} />

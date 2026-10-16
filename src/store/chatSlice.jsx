@@ -76,36 +76,53 @@ export const fetchChannelMessages = createAsyncThunk(
 );
 
 // mesajlarda Arama yapma
-export const searchChannelMessages=createAsyncThunk(
+export const searchChannelMessages = createAsyncThunk(
     'chat/searchChannelMessages',
-    async ({channelId , query},{rejectWithValue})=>{
-        try
-        {
-            const response =await api.get(`channels/${channelId}/messages/search`,{
-                params:{q:query}
+    async ({ channelId, query }, { rejectWithValue }) => {
+        try {
+            const response = await api.get(`channels/${channelId}/messages/search`, {
+                params: { q: query }
             });
             return response.data; // gelen arama sonuçları
 
         }
-        catch(error){
+        catch (error) {
             return rejectWithValue(error.response?.data || 'Arama yapılırken hata oluştu')
         }
     }
 )
 
-        // mesaj silme thunkı
-    export const deleteChannelMessage=createAsyncThunk(
-        'chat/deleteChannelMessage',
-        async ({channelId , messageId} , {rejectWithValue})=>{
-            try{
-                await api.delete(`channels/${channelId}/messages/${messageId}`);
-                return messageId; // Silinen mesajın ID'sini dönüyoruz ki state'ten silebilelim
-            }
-            catch(error){
-                return rejectWithValue(error.response?.data || 'Mesaj silinemedi')
-            }
+// mesaj silme thunkı
+export const deleteChannelMessage = createAsyncThunk(
+    'chat/deleteChannelMessage',
+    async ({ channelId, messageId }, { rejectWithValue }) => {
+        try {
+            await api.delete(`channels/${channelId}/messages/${messageId}`);
+            return messageId; // Silinen mesajın ID'sini dönüyoruz ki state'ten silebilelim
         }
-    )
+        catch (error) {
+            return rejectWithValue(error.response?.data || 'Mesaj silinemedi')
+        }
+    }
+)
+
+//mesaj güncelleme thunkı
+export const updateChannelMessage = createAsyncThunk(
+    'chat/updateChannelMessage',
+    async ({ channelId, messageId, content }, { rejectWithValue }) => {
+        try {
+            const response = await api.put(`channels/${channelId}/messages/${messageId}`, {
+                content: content
+            });
+
+            return { messageId, updatedContent: content, data: response.data };
+
+        }
+        catch (error) {
+            return rejectWithValue(error.response?.data || 'Mesaj güncellenmedi');
+        }
+    }
+)
 
 
 
@@ -115,7 +132,7 @@ const chatSlice = createSlice({
         activeTab: 'home',
         activeUser: getSafeLocalStorage('activeUser'),
         activeChannel: getSafeLocalStorage('activeChannel'),
-        searchResults:[],
+        searchResults: [],
         messages: [],
         dmList: [],
         loadingDms: false, // === EKLENDİ ===
@@ -141,8 +158,8 @@ const chatSlice = createSlice({
         setMessages: (state, action) => {
             state.messages = action.payload;
         },
-        clearSearchResults:(state)=>{
-            state.searchResults=[];
+        clearSearchResults: (state) => {
+            state.searchResults = [];
         },
         addMessage: (state, action) => {
             const newMessage = action.payload;
@@ -180,7 +197,33 @@ const chatSlice = createSlice({
                 state.dmList.unshift(channel);
             }
 
+        },
+        // === 1. GERÇEK ZAMANLI MESAJ GÜNCELLEME REDUCER'I ===
+        realtimeMessageUpdated: (state, action) => {
+        const updatedId = action.payload.message_id || action.payload.id;
+        const newContent = action.payload.content || action.payload.message;
+
+        const msgIndex = state.messages.findIndex(m => String(m.id) === String(updatedId));
+        if (msgIndex !== -1) {
+            state.messages[msgIndex].content = newContent;
+            state.messages[msgIndex].message = newContent;
         }
+
+        const searchIndex = state.searchResults.findIndex(m => String(m.id) === String(updatedId));
+        if (searchIndex !== -1) {
+            state.searchResults[searchIndex].content = newContent;
+            state.searchResults[searchIndex].message = newContent;
+        }
+        },
+        // === 2. GERÇEK ZAMANLI MESAJ SİLME REDUCER'I ===
+        realtimeMessageDeleted: (state, action) => {
+            // Backend'den message_id veya id olarak gelebilir, ikisini de kontrol ediyoruz
+            const deletedId = action.payload.message_id || action.payload.id;
+
+            state.messages = state.messages.filter(m => String(m.id) !== String(deletedId));
+            state.searchResults = state.searchResults.filter(m => String(m.id) !== String(deletedId));
+        }
+
     },
     extraReducers: (builder) => {
         builder
@@ -258,34 +301,50 @@ const chatSlice = createSlice({
             })
 
             //arama addcase
-            .addCase(searchChannelMessages.fulfilled , (state , action)=>{
-                let searchResult=[];
-                const resData=action.payload;
-                if(Array.isArray(resData))
-                {
-                    searchResult=resData;
+            .addCase(searchChannelMessages.fulfilled, (state, action) => {
+                let searchResult = [];
+                const resData = action.payload;
+                if (Array.isArray(resData)) {
+                    searchResult = resData;
                 }
-                else if(resData && Array.isArray(resData.messages))
-                {
-                    searchResult=resData.messages;
+                else if (resData && Array.isArray(resData.messages)) {
+                    searchResult = resData.messages;
                 }
-                else if(resData && Array.isArray(resData.data))
-                {
-                    searchResult=resData.data;
+                else if (resData && Array.isArray(resData.data)) {
+                    searchResult = resData.data;
                 }
-                state.searchResults=searchResult; //bulunan mesajları ekrana basma
+                state.searchResults = searchResult; //bulunan mesajları ekrana basma
             })
 
             //mesaj silme
-            .addCase(deleteChannelMessage.fulfilled , (state , action)=>{
-                const deleteId=action.payload;
+            .addCase(deleteChannelMessage.fulfilled, (state, action) => {
+                const deleteId = action.payload;
                 // Hem ana mesaj listesinden hem de arama sonuçlarından silinen mesajı çıkarıyoruz
                 state.messages = state.messages.filter(msg => String(msg.id) !== String(deleteId));
                 state.searchResults = state.searchResults.filter(msg => String(msg.id) !== String(deleteId));
             })
 
+            //mesaj güncelleme
+            .addCase(updateChannelMessage.fulfilled, (state, action) => {
+                const { messageId, updatedContent } = action.payload;
+
+                // 1. Ana messages dizisinde mesajı bul ve içeriğini güncelle
+                const msgIndex = state.messages.findIndex(m => String(m.id) === String(messageId));
+                if (msgIndex !== -1) {
+                    state.messages[msgIndex].content = updatedContent;
+                    state.messages[msgIndex].message = updatedContent; // Yedek alan desteği
+                }
+
+                // 2. Arama sonuçları (searchResults) içinde varsa orada da güncelle
+                const searchIndex = state.searchResults.findIndex(m => String(m.id) === String(messageId));
+                if (searchIndex !== -1) {
+                    state.searchResults[searchIndex].content = updatedContent;
+                    state.searchResults[searchIndex].message = updatedContent;
+                }
+            })
+
     }
 });
 
-export const { setActiveUser, setActiveChannel, setMessages, addMessage, setActiveTab, moveChannelToTop , clearSearchResults } = chatSlice.actions;
+export const { setActiveUser, setActiveChannel, setMessages, addMessage, setActiveTab, moveChannelToTop, clearSearchResults, realtimeMessageDeleted, realtimeMessageUpdated } = chatSlice.actions;
 export default chatSlice.reducer;

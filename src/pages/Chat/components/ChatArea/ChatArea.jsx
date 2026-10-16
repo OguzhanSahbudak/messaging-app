@@ -3,7 +3,7 @@ import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import { useDispatch, useSelector } from 'react-redux';
-import { addMessage, fetchChannelMessages, moveChannelToTop } from '../../../../store/chatSlice';
+import { addMessage, fetchChannelMessages, moveChannelToTop, realtimeMessageDeleted, realtimeMessageUpdated } from '../../../../store/chatSlice';
 import { useChatWebSocket } from '../../../../hooks/useChatWebSocket';
 import api from '../../../../api/axiosInstance'
 
@@ -34,14 +34,41 @@ const ChatArea = ({ toggleMobileSidebar }) => {
         return `${wsProtocol}//${wsHost}/api/v1/ws/${activeChannel.id}?token=${token}`;
     }, [activeChannel?.id]);
 
-    // WebSocket mesaj dinleyicisi (SADECE MESAJI EKRANA BASAR)
+    // WebSocket mesaj dinleyicisi (SADECE MESAJI EKRANA BASAR VE GÜNCELLEME/SİLME YAKALAR)
     const handleReceiveMessage = useCallback((data) => {
         const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
         console.log("📥 Odanın İçine Düşen Mesaj Verisi:", parsedData);
 
-        if (parsedData.type === 'chat_message' || parsedData.type === 'new_message' || parsedData.content) {
-            // Gelen mesajı sohbet akışına ekle
-            dispatch(addMessage(parsedData));
+        // === 1. ADIM: Oda içindeki socket verilerini türüne göre Redux'a aktarıyoruz ===
+        switch (parsedData.type) {
+            case 'chat_message':
+            case 'new_message':
+                if (parsedData.content || parsedData.message) {
+                    dispatch(addMessage(parsedData));
+                }
+                break;
+
+            // Oda içinde mesaj silindiğinde tetiklenecek event'ler
+            case 'message_deleted':
+            case 'message_delete':
+            case 'delete_message':
+                console.log("🗑️ Oda İçinden Mesaj Silindi:", parsedData);
+                dispatch(realtimeMessageDeleted(parsedData));
+                break;
+
+            // Oda içinde mesaj güncellendiğinde/düzenlendiğinde tetiklenecek event'ler
+            case 'message_updated':
+            case 'message_edit':
+            case 'update_message':
+                console.log("✏️ Oda İçinde Mesaj Güncellendi:", parsedData);
+                dispatch(realtimeMessageUpdated(parsedData));
+                break;
+
+            default:
+                if (parsedData.content) {
+                    dispatch(addMessage(parsedData));
+                }
+                break;
         }
     }, [dispatch]);
 

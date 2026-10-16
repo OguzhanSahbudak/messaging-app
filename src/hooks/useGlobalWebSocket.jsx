@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { incrementUnreadCount, showNotification } from '../store/notificationSlice';
-import { moveChannelToTop } from '../store/chatSlice';
+import { moveChannelToTop, realtimeMessageDeleted, realtimeMessageUpdated } from '../store/chatSlice';
 import api from '../api/axiosInstance'
 // Ses dosyasını hafızaya alıyoruz (Preload)
 const notificationAudio = new Audio('/notification.mp3');
@@ -46,6 +46,8 @@ export const useGlobalWebSocket = () => {
                     console.log('Gelen Arama İsteği:', data);
                     // dispatch(setIncomingCall(data));
                     break;
+
+                
 
                 case 'new_message':
                 case 'chat_message':
