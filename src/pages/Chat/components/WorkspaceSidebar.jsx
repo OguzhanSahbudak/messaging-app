@@ -1,18 +1,24 @@
 import React, { useEffect } from 'react';
 import { fetchChannelMembers } from '../../../store/membersSlice';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchChannelMessages, fetchMyDms, setActiveChannel, setActiveUser, startOrGetDM } from '../../../store/chatSlice';
+import { fetchChannelMessages, fetchMyDms, fetchChannels, setActiveChannel, setActiveUser, startOrGetDM } from '../../../store/chatSlice';
 import { Badge } from '@mui/material';
 import { clearUnreadCount } from '../../../store/notificationSlice';
 
 const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => {
    
-    const dispatch=useDispatch();
-    const {list:members , loading :membersLoading}=useSelector((state)=> state.members);
-   const { activeUser, activeChannel, activeTab, dmList, loadingDms } = useSelector((state) => state.chat);
+    const dispatch = useDispatch();
+    const { list: members, loading: membersLoading } = useSelector((state) => state.members);
+    // === YENİ: Redux'tan ortak kanalları çekiyoruz ===
+    const { activeUser, activeChannel, activeTab, dmList, channels, loadingDms } = useSelector((state) => state.chat);
 
-   // 2. REDUX'TAN OKUNMAMIŞ MESAJ SAYILARINI ÇEKİYORUZ: { "user_id": 3, "channel_id": 1 }
+    // 2. REDUX'TAN OKUNMAMIŞ MESAJ SAYILARINI ÇEKİYORUZ
     const { unreadCounts } = useSelector((state) => state.notification);
+
+    // === YENİ: Sayfa ilk açıldığında veya sekme değiştiğinde ortak kanalları da çek ===
+    useEffect(() => {
+        dispatch(fetchChannels());
+    }, [dispatch]);
 
    // Channel ID değişirse veya sayfa ilk açılırsa kanal üyelerini çek
     useEffect(() => {
@@ -28,46 +34,73 @@ const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => 
         }
     }, [dispatch, activeTab]);
 
-    // === YENİ: Home sekmesinde kullanıcıya tıklandığında ===
+    // === YENİ: Ortak Kanala (Örn: Hanet) tıklandığında çalışacak fonksiyon ===
+    const handleChannelClick = (channel) => {
+        dispatch(setActiveChannel(channel));
+        dispatch(setActiveUser(null));
+        dispatch(clearUnreadCount(channel.id));
+        dispatch(fetchChannelMessages({ channelId: channel.id }));
+    };
+
+    // === Home sekmesinde kullanıcıya tıklandığında ===
     const handleHomeUserClick = async (member) => {
         dispatch(setActiveUser(member));
-
-        // TIKLANAN KULLANICININ BİLDİRİM SAYISINI SIFIRLA
         dispatch(clearUnreadCount(member.id));
         
-        // 1. DM Kanal ID'sini al/oluştur (POST /api/v1/channels/dm)
         const resultAction = await dispatch(startOrGetDM(member.id));
         
         if (startOrGetDM.fulfilled.match(resultAction)) {
             const channelObj = resultAction.payload;
             dispatch(setActiveChannel(channelObj));
-
-            // Eğer kanal id'si ile de tutuyorsan onu da sıfırla
             dispatch(clearUnreadCount(channelObj.id));
-
-            // 2. O kanalın geçmiş mesajlarını getir (GET /api/v1/channels/{channel_id}/messages)
             dispatch(fetchChannelMessages({ channelId: channelObj.id }));
         }
     };
 
-    // === YENİ: DMs sekmesinde sohbet odasına tıklandığında ===
+    // === DMs sekmesinde sohbet odasına tıklandığında ===
     const handleDMChannelClick = (channel) => {
         dispatch(setActiveChannel(channel));
         dispatch(setActiveUser({ id: channel.id, first_name: channel.name }));
-
-        // TIKLANAN KANALIN BİLDİRİM SAYISINI SIFIRLA
         dispatch(clearUnreadCount(channel.id));
-        
-        // Kanalın geçmiş mesajlarını getir
         dispatch(fetchChannelMessages({ channelId: channel.id }));
     };
-
-
 
     return (
         <div className={`workspace-sidebar ${isOpen ? 'mobile-open' : ''}`}>
             <div className="workspace-header">
                 Mesajlar
+            </div>
+
+            {/* === YENİ: ORTAK KANALLAR (ŞİRKET KANALI - HANET) HER İKİ SEKMEDE DE SABİT GÖZÜKECEK === */}
+            <div className="sidebar-section" style={{ marginBottom: '15px' }}>
+                <div className="sidebar-section-title">
+                    <span>ŞİRKET KANALI</span>
+                </div>
+                {channels && channels.map((channel) => {
+                    const isSelected = activeChannel?.id === channel.id;
+                    const unreadNum = unreadCounts[channel.id] || 0;
+
+                    return (
+                        <div
+                            key={channel.id}
+                            className={`sidebar-item ${isSelected ? 'active' : ''}`}
+                            onClick={() => handleChannelClick(channel)}
+                            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '12px' }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ color: '#3B82F6', fontSize: '1rem', fontWeight: 'bold' }}>#</span>
+                                <span style={{ fontSize: '0.9rem', wordBreak: 'break-all', fontWeight: isSelected ? '600' : 'normal' }}>
+                                    {channel.name}
+                                </span>
+                            </div>
+                            <Badge 
+                                badgeContent={unreadNum} 
+                                color="error" 
+                                max={99}
+                            />
+                        </div>
+                    );
+                })}
             </div>
 
             <div className="sidebar-section">
@@ -87,7 +120,6 @@ const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => 
                                 : member.email;
 
                             const isSelected = activeUser?.id === member.id;
-                            // Bu kullanıcının okunmamış mesaj sayısı
                             const unreadNum = unreadCounts[member.id] || 0;
                             
                             return (
@@ -95,7 +127,7 @@ const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => 
                                     key={member.id}
                                     className={`sidebar-item ${isSelected ? 'active' : ''}`}
                                     onClick={() => handleHomeUserClick(member)}
-                                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
+                                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '12px' }}
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <span style={{
@@ -105,15 +137,13 @@ const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => 
                                     <span style={{ fontSize: '0.9rem', wordBreak: 'break-all' }}>
                                         {displayName}
                                     </span>
-                                </div>
+                                    </div>
                                     <Badge 
                                         badgeContent={unreadNum} 
                                         color="error" 
                                         max={99}
                                     />
                                 </div>
-
-                                
                             );
                         })
                     )
@@ -128,8 +158,6 @@ const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => 
                     ) : (
                         dmList.map((dmChannel) => {
                             const isSelected = activeChannel?.id === dmChannel.id;
-
-                            // Kanal ID veya DM Target User ID üzerinden kontrol
                             const unreadNum = unreadCounts[dmChannel.id] || 0;
                             
                             return (
@@ -137,7 +165,7 @@ const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => 
                                     key={dmChannel.id}
                                     className={`sidebar-item ${isSelected ? 'active' : ''}`}
                                     onClick={() => handleDMChannelClick(dmChannel)}
-                                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',paddingRight: '12px' }}
+                                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '12px' }}
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <span style={{ color: '#10B981', fontSize: '1.2rem' }}>•</span>
@@ -145,7 +173,6 @@ const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => 
                                         {dmChannel.name || 'Özel Sohbet'}
                                     </span>
                                     </div>
-                                    {/* KANAL BADGE */}
                                     <Badge 
                                         badgeContent={unreadNum} 
                                         color="error" 
@@ -159,7 +186,6 @@ const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => 
             </div>
         </div>
     );
-    
 };
 
 export default WorkspaceSidebar;

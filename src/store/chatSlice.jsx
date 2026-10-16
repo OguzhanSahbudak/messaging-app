@@ -124,6 +124,20 @@ export const updateChannelMessage = createAsyncThunk(
     }
 )
 
+//ortak kanalı çekme
+export const fetchChannels = createAsyncThunk(
+    'chat/fetchChannels',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await api.get('channels');
+            return response.data;
+        }
+        catch (error) {
+            return rejectWithValue(error.response?.data || 'kanallar çekilmedi')
+        }
+    }
+)
+
 
 
 const chatSlice = createSlice({
@@ -135,6 +149,7 @@ const chatSlice = createSlice({
         searchResults: [],
         messages: [],
         dmList: [],
+        channels: [],
         loadingDms: false, // === EKLENDİ ===
         loadingMessages: false, // === EKLENDİ ===
         loading: false,
@@ -146,8 +161,11 @@ const chatSlice = createSlice({
         },
         setActiveUser: (state, action) => {
             state.activeUser = action.payload;
-            // DÜZELTME: Kanalı SİLMİYORUZ, ikisi aynı anda yaşayabilir
-            localStorage.setItem('activeUser', JSON.stringify(action.payload));
+            if (action.payload) {
+                localStorage.setItem('activeUser', JSON.stringify(action.payload));
+            } else {
+                localStorage.removeItem('activeUser'); // Eğer null gelirse hafızadan tamamen siliyoruz
+            }
         },
         setActiveChannel: (state, action) => {
             state.activeChannel = action.payload;
@@ -376,6 +394,19 @@ const chatSlice = createSlice({
                 if (searchIndex !== -1) {
                     state.searchResults[searchIndex].content = updatedContent;
                     state.searchResults[searchIndex].message = updatedContent;
+                }
+            })
+
+            //ortak kanalları listeye kaydetme
+            .addCase(fetchChannels.fulfilled, (state, action) => {
+                let channelRes = action.payload;
+                if (Array.isArray(channelRes)) {
+                    state.channels = channelRes;
+                }
+                else if (channelRes && Array.isArray(channelRes.data)) {
+                    state.channels = channelRes.data;
+                } else if (channelRes && Array.isArray(channelRes.channels)) {
+                    state.channels = channelRes.channels;
                 }
             })
 
