@@ -1,10 +1,11 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://192.168.12.250:8000/api/v1/';
+// DİKKAT: Sabit IP yerine .env desteği sağlayan dinamik base URL tanımı
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1/';
 
 // 1. Özel Axios instance'ı oluşturuyoruz
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1',
+  baseURL: BASE_URL,
 });
 
 // 2. Request (İstek) Interceptor: Atılan HER isteğin header'ına otomatik Access Token ekler
@@ -36,8 +37,7 @@ api.interceptors.response.use(
           throw new Error('Refresh token bulunamadı');
         }
 
-        // Backend'deki /refresh endpoint'ine istek atıyoruz
-        // (Swagger dokümanında gördüğümüz { "refresh_token": "..." } yapısı)
+        // Backend'deki /refresh endpoint'ine dinamik BASE_URL ile istek atıyoruz
         const refreshResponse = await axios.post(`${BASE_URL}auth/refresh`, {
           refresh_token: storedRefreshToken
         });

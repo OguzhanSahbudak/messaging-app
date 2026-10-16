@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { deleteChannelMessage, fetchChannelMessages, updateChannel, updateChannelMessage } from '../../../../store/chatSlice';
 import api from '../../../../api/axiosInstance';
-import { IconButton, Menu, MenuItem, TextField, Button } from '@mui/material'; // TextField ve Button eklendi
+import { IconButton, Menu, MenuItem, TextField, Button,Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material'; // TextField ve Button eklendi
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { MdOutlineDeleteForever } from "react-icons/md";
 import { FiEdit2 } from "react-icons/fi";
@@ -29,6 +29,23 @@ const MessageList = ({ searchQuery = '' }) => {
     const [editingMessageId , setEditingMessageId]=useState(null)
     //düzenleme inputunun anlık metin içeriği
     const [editText , setEditText]=useState('');
+    
+    //silme onayı modalı state i
+    const [deleteDialogOpen , setDeleteDialogOpen]=useState(false)
+
+
+    //Düzenleme inputunu yakalamak için ref
+    const editInputRef=useRef(null);
+    
+    //Düzenleme modu açıldığı an imleci metnin sonuna konumlandırma
+    useEffect(() => {
+        if (editingMessageId && editInputRef.current) {
+            const length = editInputRef.current.value.length;
+            editInputRef.current.focus();
+            // İmleci metnin tam sonuna (length, length) taşıyoruz
+            editInputRef.current.setSelectionRange(length, length);
+        }
+    }, [editingMessageId]);
 
     const handleMenuClick = (e, msg) => {
         if (e && e.currentTarget) {
@@ -38,16 +55,29 @@ const MessageList = ({ searchQuery = '' }) => {
     }
     const handleMenuClose = () => {
         setAnchorEl(null);
+        
+    };
+
+    //Silme onay modalını açma
+    const handleOpenDeleteConfirm=()=>{
+        handleMenuClose();
+        setDeleteDialogOpen(true);
+    }
+
+    // === SİLME ONAY MODALINI KAPATMA ===
+    const handleCloseDeleteConfirm = () => {
+        setDeleteDialogOpen(false);
         setSelectedMessage(null);
     };
+    
     //mesaj silme function
-    const handleDelete = () => {
+    const handleConfirmDelete = () => {
         if (!selectedMessage || !activeChannel?.id) return;
         dispatch(deleteChannelMessage({
             channelId: activeChannel.id,
             messageId: selectedMessage.id
         }));
-        handleMenuClose();
+        handleCloseDeleteConfirm();
     }
 
     // === DÜZENLEME MODUNU BAŞLATMA FONKSİYONU ===
@@ -375,6 +405,7 @@ const MessageList = ({ searchQuery = '' }) => {
                                                 onChange={(e) => setEditText(e.target.value)}
                                                 onKeyDown={(e) => handleKeyDown(e, msg.id)}
                                                 autoFocus
+                                                inputRef={editInputRef}
                                                 multiline
                                                 sx={{ backgroundColor: '#fff', borderRadius: '4px' }}
                                             />
@@ -480,10 +511,44 @@ const MessageList = ({ searchQuery = '' }) => {
                 </MenuItem>
 
                 {/* 2. Sil Seçeneği */}
-                <MenuItem onClick={handleDelete} sx={{ color: '#EF4444', fontSize: '1rem', gap: '8px' }}>
+                <MenuItem onClick={handleOpenDeleteConfirm} sx={{ color: '#EF4444', fontSize: '1rem', gap: '8px' }}>
                     <MdOutlineDeleteForever/> Sil
                 </MenuItem>
             </Menu>
+
+            {/* === SİLME ONAY MODALI (DIALOG) === */}
+            <Dialog
+                open={deleteDialogOpen}
+                onClose={handleCloseDeleteConfirm}
+                PaperProps={{
+                    sx: { borderRadius: '12px', padding: '8px', minWidth: '320px' }
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                    Mesajı Sil
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ color: 'var(--text-muted)' }}>
+                        Bu mesajı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ padding: '16px' }}>
+                    <Button 
+                        onClick={handleCloseDeleteConfirm} 
+                        sx={{ textTransform: 'none', color: '#6B7280' }}
+                    >
+                        İptal
+                    </Button>
+                    <Button 
+                        onClick={handleConfirmDelete} 
+                        variant="contained" 
+                        color="error"
+                        sx={{ textTransform: 'none', borderRadius: '6px' }}
+                    >
+                        Evet, Sil
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <div ref={messagesEndRef} />
         </div>
