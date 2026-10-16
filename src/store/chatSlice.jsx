@@ -200,20 +200,38 @@ const chatSlice = createSlice({
         },
         // === 1. GERÇEK ZAMANLI MESAJ GÜNCELLEME REDUCER'I ===
         realtimeMessageUpdated: (state, action) => {
-        const updatedId = action.payload.message_id || action.payload.id;
-        const newContent = action.payload.content || action.payload.message;
+        // Backend'den gelen veri bazen action.payload içinde, bazen action.payload.data/message içinde olabilir. 
+    // Hepsini kapsayacak şekilde güvenli bir nesne seçiyoruz:
+    const payload = action.payload?.data || action.payload?.message || action.payload;
+    
+    const updatedId = payload.message_id || payload.id;
+    const newContent = payload.content || payload.message || payload.updated_content;
 
-        const msgIndex = state.messages.findIndex(m => String(m.id) === String(updatedId));
-        if (msgIndex !== -1) {
-            state.messages[msgIndex].content = newContent;
-            state.messages[msgIndex].message = newContent;
-        }
+    if (!updatedId) return;
 
-        const searchIndex = state.searchResults.findIndex(m => String(m.id) === String(updatedId));
-        if (searchIndex !== -1) {
-            state.searchResults[searchIndex].content = newContent;
-            state.searchResults[searchIndex].message = newContent;
+    // 1. Ana messages dizisini .map ile güncelleyerek taze bir referans (immutability) üretiyoruz
+    state.messages = state.messages.map(m => {
+        if (String(m.id) === String(updatedId)) {
+            return {
+                ...m,
+                content: newContent,
+                message: newContent
+            };
         }
+        return m;
+    });
+
+    // 2. Arama sonuçları varsa orada da aynısını yapıyoruz
+    state.searchResults = state.searchResults.map(m => {
+        if (String(m.id) === String(updatedId)) {
+            return {
+                ...m,
+                content: newContent,
+                message: newContent
+            };
+        }
+        return m;
+    });
         },
         // === 2. GERÇEK ZAMANLI MESAJ SİLME REDUCER'I ===
         realtimeMessageDeleted: (state, action) => {
