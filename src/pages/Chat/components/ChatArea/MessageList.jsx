@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { deleteChannelMessage, fetchChannelMessages, updateChannel, updateChannelMessage } from '../../../../store/chatSlice';
 import api from '../../../../api/axiosInstance';
-import { IconButton, Menu, MenuItem, TextField, Button,Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material'; // TextField ve Button eklendi
+import { IconButton, Menu, MenuItem, TextField, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material'; // TextField ve Button eklendi
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { MdOutlineDeleteForever } from "react-icons/md";
 import { FiEdit2 } from "react-icons/fi";
@@ -11,6 +11,9 @@ import { FiEdit2 } from "react-icons/fi";
 const MessageList = ({ searchQuery = '' }) => {
     const dispatch = useDispatch();
     const { messages, searchResults, activeChannel, loadingMessages } = useSelector((state) => state.chat);
+
+    // Redux'tan üye listesini çekiyoruz (memberSlice içindeki 'list')
+    const { list: members } = useSelector((state) => state.members);
 
     const messagesEndRef = useRef(null);
     const containerRef = useRef(null);
@@ -26,17 +29,17 @@ const MessageList = ({ searchQuery = '' }) => {
 
     // === MESAJ DÜZENLEME (EDIT) STATE'LERİ ===
     // Hangi mesajın düzenleme modunda olduğunu tutar (message id veya null)
-    const [editingMessageId , setEditingMessageId]=useState(null)
+    const [editingMessageId, setEditingMessageId] = useState(null)
     //düzenleme inputunun anlık metin içeriği
-    const [editText , setEditText]=useState('');
-    
+    const [editText, setEditText] = useState('');
+
     //silme onayı modalı state i
-    const [deleteDialogOpen , setDeleteDialogOpen]=useState(false)
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
 
     //Düzenleme inputunu yakalamak için ref
-    const editInputRef=useRef(null);
-    
+    const editInputRef = useRef(null);
+
     //Düzenleme modu açıldığı an imleci metnin sonuna konumlandırma
     useEffect(() => {
         if (editingMessageId && editInputRef.current) {
@@ -55,11 +58,11 @@ const MessageList = ({ searchQuery = '' }) => {
     }
     const handleMenuClose = () => {
         setAnchorEl(null);
-        
+
     };
 
     //Silme onay modalını açma
-    const handleOpenDeleteConfirm=()=>{
+    const handleOpenDeleteConfirm = () => {
         handleMenuClose();
         setDeleteDialogOpen(true);
     }
@@ -69,7 +72,7 @@ const MessageList = ({ searchQuery = '' }) => {
         setDeleteDialogOpen(false);
         setSelectedMessage(null);
     };
-    
+
     //mesaj silme function
     const handleConfirmDelete = () => {
         if (!selectedMessage || !activeChannel?.id) return;
@@ -81,26 +84,26 @@ const MessageList = ({ searchQuery = '' }) => {
     }
 
     // === DÜZENLEME MODUNU BAŞLATMA FONKSİYONU ===
-    const handleStartEdit=()=>{
-        if(!selectedMessage) return;
+    const handleStartEdit = () => {
+        if (!selectedMessage) return;
         setEditingMessageId(selectedMessage.id);
         setEditText(selectedMessage.content || selectedMessage.message || '');
         handleMenuClose();
     }
 
     //Düzenlemeyi iptal etme
-    const handleCancelEdit=()=>{
+    const handleCancelEdit = () => {
         setEditingMessageId(null);
         setEditText('');
     }
 
     // === GÜNCELLEMEYİ KAYDETME (API ÇAĞRISI) ===
-    const handleSaveEdit=(msgId)=>{
-        if(!editText.trim() || !activeChannel?.id) return;
+    const handleSaveEdit = (msgId) => {
+        if (!editText.trim() || !activeChannel?.id) return;
         dispatch(updateChannelMessage({
-            channelId:activeChannel.id,
-            messageId:msgId,
-            content:editText.trim()
+            channelId: activeChannel.id,
+            messageId: msgId,
+            content: editText.trim()
         }))
         setEditingMessageId(null);
         setEditText('');
@@ -322,9 +325,23 @@ const MessageList = ({ searchQuery = '' }) => {
             {/* Artık displayedMessages haritalanıyor (Arama varsa arama sonuçları, yoksa taze mesajlar) */}
             {displayedMessages.map((msg, index) => {
                 const isOwnMessage = String(msg.sender_id) === String(currentUserId);
+                // 🔍 Üye listesinden sender_id ile eşleşen kişiyi buluyoruz 
+                // (memberSlice'ındaki yapıya tam uyumlu ID kontrolü)
+                let foundSenderName = 'Kullanıcı';
+                if (!isOwnMessage && members && members.length > 0) {
+                    const foundMember = members.find(m =>
+                        String(m.user_id || m.id || m.user?.id) === String(msg.sender_id)
+                    );
+                    if (foundMember) {
+                        foundSenderName = (foundMember.first_name || foundMember.last_name)
+                            ? `${foundMember.first_name || ''} ${foundMember.last_name || ''}`.trim()
+                            : (foundMember.email || foundMember.user?.first_name || 'Kullanıcı');
+                    }
+                }
+
                 const senderDisplayName = isOwnMessage
                     ? 'Sen'
-                    : (msg.sender_name || activeChannel?.name || 'Kullanıcı');
+                    : (msg.sender_name || msg.user_name || msg.username || foundSenderName);
 
                 const safeFileUrl = getSafeFileUrl(msg.file_url);
                 const messageText = msg.content || msg.message || '';
@@ -338,7 +355,7 @@ const MessageList = ({ searchQuery = '' }) => {
                 const currentDateText = getDateSeparatorText(msg.created_at);
                 const prevMessage = displayedMessages[index - 1];
                 const prevDateText = prevMessage ? getDateSeparatorText(prevMessage.created_at) : null;
-                
+
                 // Eğer bu ilk mesajsa veya bir önceki mesajdan farklı bir güne aitse tarih başlığı göster
                 const showDateSeparator = index === 0 || currentDateText !== prevDateText;
 
@@ -356,7 +373,7 @@ const MessageList = ({ searchQuery = '' }) => {
                         <div className={`message-box  ${isOwnMessage ? 'own-message' : ''}`}
                             // AÇIKLAMA: OTOMATİK ODAKLANMA SCROLL TO MATCH
                             // Eğer bu mesaj aranan kelimeyi içeriyorsa, ekran animasyonlu bir şekilde bu mesaja kayarak ortalar.
-                            
+
                             ref={isHighlighted ? (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : null}
                             style={{
                                 position: 'relative',
@@ -410,16 +427,16 @@ const MessageList = ({ searchQuery = '' }) => {
                                                 sx={{ backgroundColor: '#fff', borderRadius: '4px' }}
                                             />
                                             <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                                <Button 
-                                                    size="small" 
-                                                    onClick={handleCancelEdit} 
+                                                <Button
+                                                    size="small"
+                                                    onClick={handleCancelEdit}
                                                     sx={{ textTransform: 'none', color: '#6B7280', fontSize: '0.75rem' }}
                                                 >
                                                     İptal
                                                 </Button>
-                                                <Button 
-                                                    size="small" 
-                                                    variant="contained" 
+                                                <Button
+                                                    size="small"
+                                                    variant="contained"
                                                     onClick={() => handleSaveEdit(msg.id)}
                                                     sx={{ textTransform: 'none', backgroundColor: 'var(--brand-primary)', fontSize: '0.75rem' }}
                                                 >
@@ -512,7 +529,7 @@ const MessageList = ({ searchQuery = '' }) => {
 
                 {/* 2. Sil Seçeneği */}
                 <MenuItem onClick={handleOpenDeleteConfirm} sx={{ color: '#EF4444', fontSize: '1rem', gap: '8px' }}>
-                    <MdOutlineDeleteForever/> Sil
+                    <MdOutlineDeleteForever /> Sil
                 </MenuItem>
             </Menu>
 
@@ -533,15 +550,15 @@ const MessageList = ({ searchQuery = '' }) => {
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions sx={{ padding: '16px' }}>
-                    <Button 
-                        onClick={handleCloseDeleteConfirm} 
+                    <Button
+                        onClick={handleCloseDeleteConfirm}
                         sx={{ textTransform: 'none', color: '#6B7280' }}
                     >
                         İptal
                     </Button>
-                    <Button 
-                        onClick={handleConfirmDelete} 
-                        variant="contained" 
+                    <Button
+                        onClick={handleConfirmDelete}
+                        variant="contained"
                         color="error"
                         sx={{ textTransform: 'none', borderRadius: '6px' }}
                     >
