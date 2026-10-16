@@ -162,43 +162,56 @@ const chatSlice = createSlice({
             state.searchResults = [];
         },
         addMessage: (state, action) => {
-           const newMessage = action.payload;
+     const newMessage = action.payload;
 
-    // Gelen mesajın ait olduğu kanal ID'sini yakala
-    const messageChannelId = newMessage.channel_id || newMessage.room_id;
-    const activeChannelId = state.activeChannel?.id;
+            // Gelen mesajın ait olduğu kanal ID'sini yakala
+            const messageChannelId = newMessage.channel_id || newMessage.room_id;
+            const activeChannelId = state.activeChannel?.id;
 
-    // 1. KRİTİK KONTROL: Başka odaya ait mesajsa ekleme
-    if (messageChannelId && activeChannelId && String(messageChannelId) !== String(activeChannelId)) {
-        return;
-    }
-
-    const messageId = newMessage.id || newMessage.message_id;
-    const newContent = newMessage.content || newMessage.message;
-
-    if (!messageId) return;
-
-    // 2. Bu ID'li mesaj daha önce listede var mı?
-    const exists = state.messages.some(msg => String(msg.id) === String(messageId));
-
-    if (exists) {
-        // EĞER VARSA: Bu bir güncelleme (edit) sinyalidir! 
-        // .map() kullanarak dizinin referansını yeniliyoruz ki React ekranı anında güncellesin.
-        state.messages = state.messages.map(msg => {
-            if (String(msg.id) === String(messageId)) {
-                return {
-                    ...msg,
-                    content: newContent || msg.content,
-                    message: newContent || msg.message,
-                    is_edited: true
-                };
+            // 1. KRİTİK KONTROL: Başka odaya ait mesajsa ekleme
+            if (messageChannelId && activeChannelId && String(messageChannelId) !== String(activeChannelId)) {
+                return;
             }
-            return msg;
-        });
-    } else {
-        // 3. Listede hiç yoksa yepyepyeni mesajdır, alta ekle
-        state.messages.push(newMessage);
-    }
+
+            const messageId = newMessage.id || newMessage.message_id;
+            const newContent = newMessage.content || newMessage.message;
+
+            if (!messageId) return;
+
+            // 2. KRİTİK KONTROL: Aynı ID'ye sahip mesaj listede var mı?
+            const exists = state.messages.some(msg => String(msg.id) === String(messageId));
+
+            if (exists) {
+                // EĞER VARSA: Backend düzenlemede de 'new_message' attığı için buraya düşer.
+                // .map() ile dizinin referansını yeniliyoruz ki React ekranı anında güncellesin!
+                state.messages = state.messages.map(msg => {
+                    if (String(msg.id) === String(messageId)) {
+                        return {
+                            ...msg,
+                            content: newContent !== undefined ? newContent : msg.content,
+                            message: newContent !== undefined ? newContent : msg.message,
+                            is_edited: true
+                        };
+                    }
+                    return msg;
+                });
+            } else {
+                // 3. Listede hiç yoksa yepyepyeni mesajdır, alta ekle
+                state.messages.push(newMessage);
+            }
+
+            // Arama sonuçlarında (searchResults) varsa orada da güncellemeyi yapalım
+            state.searchResults = state.searchResults.map(msg => {
+                if (String(msg.id) === String(messageId)) {
+                    return {
+                        ...msg,
+                        content: newContent !== undefined ? newContent : msg.content,
+                        message: newContent !== undefined ? newContent : msg.message,
+                        is_edited: true
+                    };
+                }
+                return msg;
+            });
         },
         // === YENİ EKLENEN REDUCER: Gelen mesajın ait olduğu sohbeti sol listede en üste taşır ===
         moveChannelToTop: (state, action) => {

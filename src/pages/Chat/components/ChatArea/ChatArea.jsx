@@ -56,13 +56,7 @@ const ChatArea = ({ toggleMobileSidebar }) => {
                 dispatch(realtimeMessageDeleted(parsedData));
                 break;
 
-            // Oda içinde mesaj güncellendiğinde/düzenlendiğinde tetiklenecek event'ler
-            case 'message_updated':
-            case 'message_edit':
-            case 'update_message':
-                console.log("✏️ Oda İçinde Mesaj Güncellendi:", parsedData);
-                dispatch(realtimeMessageUpdated(parsedData));
-                break;
+            
 
             default:
                 if (parsedData.content) {
