@@ -162,13 +162,13 @@ const chatSlice = createSlice({
             state.searchResults = [];
         },
         addMessage: (state, action) => {
-     const newMessage = action.payload;
+            const newMessage = action.payload;
 
             // Gelen mesajın ait olduğu kanal ID'sini yakala
             const messageChannelId = newMessage.channel_id || newMessage.room_id;
             const activeChannelId = state.activeChannel?.id;
 
-            // 1. KRİTİK KONTROL: Başka odaya ait mesajsa ekleme
+            // 1. Başka odaya ait mesajsa ekleme
             if (messageChannelId && activeChannelId && String(messageChannelId) !== String(activeChannelId)) {
                 return;
             }
@@ -178,40 +178,28 @@ const chatSlice = createSlice({
 
             if (!messageId) return;
 
-            // 2. KRİTİK KONTROL: Aynı ID'ye sahip mesaj listede var mı?
-            const exists = state.messages.some(msg => String(msg.id) === String(messageId));
+            // 2. Bu ID'li mesaj listede var mı? Index'ini buluyoruz
+            const existingIndex = state.messages.findIndex(msg => String(msg.id) === String(messageId));
 
-            if (exists) {
-                // EĞER VARSA: Backend düzenlemede de 'new_message' attığı için buraya düşer.
-                // .map() ile dizinin referansını yeniliyoruz ki React ekranı anında güncellesin!
-                state.messages = state.messages.map(msg => {
-                    if (String(msg.id) === String(messageId)) {
-                        return {
-                            ...msg,
-                            content: newContent !== undefined ? newContent : msg.content,
-                            message: newContent !== undefined ? newContent : msg.message,
-                            is_edited: true
-                        };
-                    }
-                    return msg;
-                });
+            if (existingIndex !== -1) {
+                // EĞER VARSA: Doğrudan index üzerinden güncelliyoruz (Immer bunu anında yakalar!)
+                if (newContent !== undefined) {
+                    state.messages[existingIndex].content = newContent;
+                    state.messages[existingIndex].message = newContent;
+                    state.messages[existingIndex].is_edited = true;
+                }
             } else {
                 // 3. Listede hiç yoksa yepyepyeni mesajdır, alta ekle
                 state.messages.push(newMessage);
             }
 
-            // Arama sonuçlarında (searchResults) varsa orada da güncellemeyi yapalım
-            state.searchResults = state.searchResults.map(msg => {
-                if (String(msg.id) === String(messageId)) {
-                    return {
-                        ...msg,
-                        content: newContent !== undefined ? newContent : msg.content,
-                        message: newContent !== undefined ? newContent : msg.message,
-                        is_edited: true
-                    };
-                }
-                return msg;
-            });
+            // Arama sonuçlarında (searchResults) varsa orada da direkt güncelleyelim
+            const searchIndex = state.searchResults.findIndex(msg => String(msg.id) === String(messageId));
+            if (searchIndex !== -1 && newContent !== undefined) {
+                state.searchResults[searchIndex].content = newContent;
+                state.searchResults[searchIndex].message = newContent;
+                state.searchResults[searchIndex].is_edited = true;
+            }
         },
         // === YENİ EKLENEN REDUCER: Gelen mesajın ait olduğu sohbeti sol listede en üste taşır ===
         moveChannelToTop: (state, action) => {
@@ -229,22 +217,22 @@ const chatSlice = createSlice({
         },
         // === 1. GERÇEK ZAMANLI MESAJ GÜNCELLEME REDUCER'I ===
         realtimeMessageUpdated: (state, action) => {
-            // Backend'den gelen veri bazen action.payload içinde, bazen action.payload.data/message içinde olabilir. 
-            // Hepsini kapsayacak şekilde güvenli bir nesne seçiyoruz:
             const payload = action.payload?.data || action.payload?.message || action.payload;
 
             const updatedId = payload.message_id || payload.id;
-            const newContent = payload.content || payload.message || payload.updated_content;
+            // DİKKAT: Backend'den gelen 'new_content' alanını da buraya ekledik!
+            const newContent = payload.new_content || payload.content || payload.message || payload.updated_content;
 
-            if (!updatedId) return;
+            if (!updatedId || newContent === undefined) return;
 
-            // 1. Ana messages dizisini .map ile güncelleyerek taze bir referans (immutability) üretiyoruz
+            // 1. Ana messages dizisini .map ile güncelleyerek taze bir referans üretiyoruz
             state.messages = state.messages.map(m => {
                 if (String(m.id) === String(updatedId)) {
                     return {
                         ...m,
                         content: newContent,
-                        message: newContent
+                        message: newContent,
+                        is_edited: true
                     };
                 }
                 return m;
@@ -256,7 +244,8 @@ const chatSlice = createSlice({
                     return {
                         ...m,
                         content: newContent,
-                        message: newContent
+                        message: newContent,
+                        is_edited: true
                     };
                 }
                 return m;
