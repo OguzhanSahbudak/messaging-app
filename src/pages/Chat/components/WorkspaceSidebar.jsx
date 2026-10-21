@@ -1,31 +1,41 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { fetchChannelMembers } from '../../../store/membersSlice';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchChannelMessages, fetchMyDms, fetchChannels, setActiveChannel, setActiveUser, startOrGetDM } from '../../../store/chatSlice';
 import { Badge } from '@mui/material';
 import { clearUnreadCount } from '../../../store/notificationSlice';
+import '../Sidebar.css'
 
 const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => {
    
     const dispatch = useDispatch();
-    const { list: members, loading: membersLoading } = useSelector((state) => state.members);
+    const { searchList: members, loading: membersLoading } = useSelector((state) => state.members);
     // === YENİ: Redux'tan ortak kanalları çekiyoruz ===
     const { activeUser, activeChannel, activeTab, dmList, channels, loadingDms } = useSelector((state) => state.chat);
 
     // 2. REDUX'TAN OKUNMAMIŞ MESAJ SAYILARINI ÇEKİYORUZ
     const { unreadCounts } = useSelector((state) => state.notification);
 
+    //Arama metnini tutacak state
+    const [memberSearchQuery , setMemberSearchQuery]=useState('');
+
     // === YENİ: Sayfa ilk açıldığında veya sekme değiştiğinde ortak kanalları da çek ===
     useEffect(() => {
         dispatch(fetchChannels());
     }, [dispatch]);
 
-   // Channel ID değişirse veya sayfa ilk açılırsa kanal üyelerini çek
+   // Channel ID değişirse veya sayfa ilk açılırsa kanal üyelerini çek search mantığıda burda
     useEffect(() => {
         if (channelId && activeTab === 'home') {
-            dispatch(fetchChannelMembers(channelId));
+            const delayDebounceFn=setTimeout(()=>{
+                dispatch(fetchChannelMembers({
+                    channelId:channelId,
+                    searchQuery:memberSearchQuery //state deki metni backende yolluyoruz
+                }));
+            },200)
+            return ()=>clearTimeout(delayDebounceFn); //Kullanıcı 500ms dolmadan yeni harf basarsa önceki sayacı sıfırlar
         }
-    }, [dispatch, channelId, activeTab]);
+    }, [dispatch, channelId, activeTab,memberSearchQuery]);
 
    // DMs sekmesindeysek listenin güncel kalmasını sağla
     useEffect(() => {
@@ -110,10 +120,18 @@ const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => 
                 </div>
                 
                 {/* === HOME SEKMESİ LİSTESİ === */}
+                {activeTab==='home' &&(
+                    <div className='sidebar-search-container'>
+                        <input type="text" className='sidebar-search-input' placeholder='Kullanıcı ara...' value={memberSearchQuery}
+                        onChange={(e)=>setMemberSearchQuery(e.target.value)} />
+                    </div>
+                )}
                 {activeTab === 'home' && (
                     membersLoading ? (
                         <div style={{ padding: '10px', color: 'var(--text-muted)' }}>Yükleniyor...</div>
-                    ) : (
+                    ) : members.length===0 ? (
+                        <div style={{ padding: '10px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Kullanıcı bulunamadı.</div>
+                    ): (
                         members.map((member) => {
                             const displayName = (member.first_name || member.last_name)
                                 ? `${member.first_name || ''} ${member.last_name || ''}`.trim()

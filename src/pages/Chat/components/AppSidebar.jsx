@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setActiveTab, fetchMyDms } from '../../../store/chatSlice';
 import { Badge } from '@mui/material';
 import SettingsModal from './ChatArea/SettingsModal'; // Yeni oluşturduğumuz modalı import ettik
-import '../AppSidebar.css';
+import '../Sidebar.css';
 
 const AppSidebar = () => {
     const dispatch = useDispatch();

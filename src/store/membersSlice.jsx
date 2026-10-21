@@ -2,19 +2,27 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../api/axiosInstance';
 
 //THUNK: Üyeleri getirme
-export const fetchChannelMembers=createAsyncThunk('members/fetchChannelMembers',
-    async(channelId , {rejectWithValue})=>{
-        try{
-            const response =await api.get(`channels/${channelId}/members`)
-            return response.data;
+export const fetchChannelMembers = createAsyncThunk('members/fetchChannelMembers',
+    async (args, { rejectWithValue }) => {
+        try {
+            // Parametre obje olarak da gelebilir, direkt ID string'i olarak da (hata vermesin diye koruma)
+            const channelId = typeof args === 'object' ? args.channelId : args;
+            const searchQuery = typeof args === 'object' && args.searchQuery ? args.searchQuery : '';
+
+            const response = await api.get(`channels/${channelId}/members`, {
+                params: { search: searchQuery }
+            })
+
+            // Gelen veriyi ve "bu bir arama işlemi miydi?" bilgisini dönüyoruz
+            return { data: response.data, isSearch: searchQuery.trim() !== '' };
         }
-        catch(error){
+        catch (error) {
             return rejectWithValue(error.response?.data || 'Üyeler yüklenemedi');
         }
     })
 
-   // YENİ THUNK: Üye ad/soyad güncelleme
-    export const updateChannelMember = createAsyncThunk(
+// YENİ THUNK: Üye ad/soyad güncelleme
+export const updateChannelMember = createAsyncThunk(
     'members/updateChannelMember',
     async ({ channelId, targetUserId, firstName, lastName }, { rejectWithValue }) => {
         try {
@@ -29,44 +37,55 @@ export const fetchChannelMembers=createAsyncThunk('members/fetchChannelMembers',
             return rejectWithValue(error.response?.data || 'Üye güncellenemedi');
         }
     }
-    ); 
+);
 
-    const memberSlice =createSlice({
-        name:'members',
-        initialState:{
-            list:[],
-            loading:false,
-            error:null,
-        },
-        reducers:{},
-        extraReducers:(builder)=>{
-            builder.addCase(fetchChannelMembers.pending , (state)=>{
-                state.loading=true,
-                state.error=null;
-            })
-            .addCase(fetchChannelMembers.fulfilled , (state , action)=>{
-                state.loading=false,
-                state.list=action.payload;
-            })
-            .addCase(fetchChannelMembers.rejected , (state , action)=>{
-                state.loading=false;
-                state.error=action.payload;
-            })
-            .addCase(updateChannelMember.fulfilled , (state , action)=>{
-                const {targetUserId , firstName , lastName}=action.payload;
-                const member=state.list.find((m)=>String(m.user_id || m.id || m.user?.id) === String(targetUserId));
-                if(member)
-                {
-                    member.first_name=firstName;
-                    member.last_name=lastName;
-                    // Eğer nested user objesi varsa onun da adını güncelle
-                    if (member.user) {
-                        member.user.first_name = firstName;
-                        member.user.last_name = lastName;
-                    }
+const memberSlice = createSlice({
+    name: 'members',
+    initialState: {
+        list: [], // Ana Liste: Mesaj ekranı (MessageList) buraya bakacak ve hiç ezilmeyecek
+        searchList: [], // Arama Listesi: Sol menü (WorkspaceSidebar) buraya bakacak
+        loading: false,
+        error: null,
+    },
+    reducers: {},
+    extraReducers: (builder) => {
+        builder.addCase(fetchChannelMembers.pending, (state) => {
+            state.loading = true,
+                state.error = null;
+        })
+            .addCase(fetchChannelMembers.fulfilled, (state, action) => {
+                state.loading = false;
+                // 🔍 KRİTİK AYRIM MANTIĞI:
+                if (action.payload.isSearch) {
+                    // Eğer arama kutusuna bir şey yazıldıysa SADECE searchList'i ez, ana listeye dokunma!
+                    state.searchList = action.payload.data;
+                } else {
+                    // Sayfa ilk açıldığında (arama yokken) her iki listeyi de doldur
+                    state.list = action.payload.data;
+                    state.searchList = action.payload.data;
                 }
             })
-        }
-    })
+            .addCase(fetchChannelMembers.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload;
+            })
+            .addCase(updateChannelMember.fulfilled, (state, action) => {
+                const { targetUserId, firstName, lastName } = action.payload;
+                [state.list, state.searchList].forEach(targetList => {
+                    const member = targetList.find((m) => String(m.user_id || m.id || m.user?.id) === String(targetUserId));
+                    if (member) {
+                        member.first_name = firstName;
+                        member.last_name = lastName;
+                        // Eğer nested user objesi varsa onun da adını güncelle
+                        if (member.user) {
+                            member.user.first_name = firstName;
+                            member.user.last_name = lastName;
+                        }
+                    }
+                })
 
-    export default memberSlice.reducer
+            })
+    }
+})
+
+export default memberSlice.reducer
