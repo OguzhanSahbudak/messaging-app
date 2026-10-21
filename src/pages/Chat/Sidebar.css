@@ -43,3 +43,16 @@
 .sidebar-search-input::placeholder {
     color: #9CA3AF; /* Soluk gri placeholder metni */
 }
+
+/* Başlangıçta silme ikonunu gizle */
+.dm-sidebar-item .dm-delete-btn {
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease-in-out;
+}
+
+/* Fare sohbetin (item'in) üzerine gelince silme ikonunu göster */
+.dm-sidebar-item:hover .dm-delete-btn {
+    opacity: 1;
+    visibility: visible;
+}

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { fetchChannelMembers } from '../../../store/membersSlice';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchChannelMessages, fetchMyDms, fetchChannels, setActiveChannel, setActiveUser, startOrGetDM } from '../../../store/chatSlice';
-import { Badge } from '@mui/material';
+import { fetchChannelMessages, fetchMyDms, fetchChannels, setActiveChannel, setActiveUser, startOrGetDM, deleteDMConversation } from '../../../store/chatSlice';
+import { Badge, IconButton, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material'; 
+import { MdOutlineDeleteForever } from "react-icons/md";
 import { clearUnreadCount } from '../../../store/notificationSlice';
 import '../Sidebar.css'
 
@@ -18,6 +19,26 @@ const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => 
 
     //Arama metnini tutacak state
     const [memberSearchQuery , setMemberSearchQuery]=useState('');
+
+    //silinecek dm i tutan state ve onay modalı state'i
+    const [dmToDelete , setDmToDelete]=useState(null);
+    
+    //çöp kutusuna tıklandığında çalışır
+    const handleDeleteClick=(e , dmChannel) =>{
+        e.stopPropagation();
+        setDmToDelete(dmChannel);
+    };
+
+    const confirmDeleteDM=()=>{
+        if(dmToDelete)
+        {
+            dispatch(deleteDMConversation(dmToDelete.id));
+            setDmToDelete(null);
+
+        }
+    }
+
+
 
     // === YENİ: Sayfa ilk açıldığında veya sekme değiştiğinde ortak kanalları da çek ===
     useEffect(() => {
@@ -181,7 +202,7 @@ const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => 
                             return (
                                 <div 
                                     key={dmChannel.id}
-                                    className={`sidebar-item ${isSelected ? 'active' : ''}`}
+                                    className={`sidebar-item ${isSelected ? 'active' : ''} dm-sidebar-item`}
                                     onClick={() => handleDMChannelClick(dmChannel)}
                                     style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '12px' }}
                                 >
@@ -191,17 +212,49 @@ const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => 
                                         {dmChannel.name || 'Özel Sohbet'}
                                     </span>
                                     </div>
-                                    <Badge 
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <Badge 
                                         badgeContent={unreadNum} 
                                         color="error" 
                                         max={99}
                                     />
+                                    <IconButton size='small' onClick={(e)=>handleDeleteClick(e,dmChannel)}
+                                        sx={{ color: '#EF4444', padding: '4px' }} className='dm-delete-btn'>
+                                        <MdOutlineDeleteForever fontSize="small" />
+                                    </IconButton>
+                                    </div>
+                                    
                                 </div>
                             );
                         })
                     )
                 )}
             </div>
+
+            {/* === YENİ: DM SİLME ONAY MODALI === */}
+            <Dialog
+                open={Boolean(dmToDelete)}
+                onClose={() => setDmToDelete(null)}
+                PaperProps={{ sx: { borderRadius: '12px', padding: '8px', minWidth: '320px' } }}
+            >
+                <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                    Sohbeti Sil
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ color: 'var(--text-muted)' }}>
+                        <strong style={{color: '#1F2937'}}>{dmToDelete?.name}</strong> ile olan tüm sohbet geçmişini kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ padding: '16px' }}>
+                    <Button onClick={() => setDmToDelete(null)} sx={{ textTransform: 'none', color: '#6B7280' }}>
+                        İptal
+                    </Button>
+                    <Button onClick={confirmDeleteDM} variant="contained" color="error" sx={{ textTransform: 'none', borderRadius: '6px' }}>
+                        Evet, Kalıcı Olarak Sil
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
         </div>
     );
 };

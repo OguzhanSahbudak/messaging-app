@@ -139,6 +139,22 @@ export const fetchChannels = createAsyncThunk(
 )
 
 
+    //DM sohbetini kalıcı olarak silme
+    export const deleteDMConversation=createAsyncThunk(
+        'chat/deleteDMConversation',
+        async (channelId , {rejectWithValue})=>{
+            try{
+                await api.delete(`channels/dms/${channelId}`);
+                return channelId; // İşlem başarılıysa silinen kanalın ID'sini reducer'a gönderiyoruz
+            }
+            catch(error)
+            {
+                return rejectWithValue(error.response?.data || 'DM sohbeti silinmedi');
+            }
+        }
+    )
+
+
 
 const chatSlice = createSlice({
     name: 'chat',
@@ -407,6 +423,21 @@ const chatSlice = createSlice({
                     state.channels = channelRes.data;
                 } else if (channelRes && Array.isArray(channelRes.channels)) {
                     state.channels = channelRes.channels;
+                }
+            })
+
+            // === DM SİLME İŞLEMİ REDUCER'I ===
+            .addCase(deleteDMConversation.fulfilled , (state , action)=>{
+                const deletedChannelId=action.payload;
+                state.dmList=state.dmList.filter(dm => String(dm.id) !== String(deletedChannelId));
+
+                if(state.activeChannel && String(state.activeChannel.id) === String(deletedChannelId))
+                {
+                    state.activeChannel = null;
+                    state.activeUser = null;
+                    state.messages = [];
+                    localStorage.removeItem('activeChannel');
+                    localStorage.removeItem('activeUser');
                 }
             })
 
