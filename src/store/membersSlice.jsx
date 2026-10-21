@@ -39,6 +39,22 @@ export const updateChannelMember = createAsyncThunk(
     }
 );
 
+    //Kullanıcıyı Kanaldan Çıkarma
+    export const removeChannelMember=createAsyncThunk(
+        'members/removeChannelMember',
+        async({channelId , targetUserId},{rejectWithValue})=>{
+            try
+            {
+                await api.delete(`channels/${channelId}/members/${targetUserId}`);
+                return targetUserId;
+            }
+            catch(error)
+            {
+                return rejectWithValue(error.response?.data || 'Kullanıcı kanaldan çıkarılamadı');
+            }
+        }
+    )
+
 const memberSlice = createSlice({
     name: 'members',
     initialState: {
@@ -85,6 +101,15 @@ const memberSlice = createSlice({
                 })
 
             })
+            //kullanıcı silme reducer'ı
+            .addCase(removeChannelMember.fulfilled , (state , action)=>{
+                    const removedUserId=action.payload;
+
+                    // Silinen kişiyi hem ana listeden hem de arama listesinden filtreleyerek çıkarıyoruz
+                state.list = state.list.filter(m => String(m.user_id || m.id || m.user?.id) !== String(removedUserId));
+                state.searchList = state.searchList.filter(m => String(m.user_id || m.id || m.user?.id) !== String(removedUserId));
+            })
+
     }
 })
 

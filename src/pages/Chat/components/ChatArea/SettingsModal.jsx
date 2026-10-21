@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchChannelMembers, updateChannelMember } from '../../../../store/membersSlice';
+import { fetchChannelMembers, removeChannelMember, updateChannelMember } from '../../../../store/membersSlice';
 import EditChannelModal from './EditChannelModal'; // Bağımsız modalımız import edildi
 import {
     Dialog,
     DialogTitle,
     DialogContent,
+    DialogContentText,
     DialogActions,
     Button,
     TextField,
@@ -16,6 +17,7 @@ import {
     Typography,
     CircularProgress
 } from '@mui/material';
+import { MdPersonRemove } from "react-icons/md";
 
 const SettingsModal = ({ open, onClose }) => {
     const dispatch = useDispatch();
@@ -39,6 +41,12 @@ const SettingsModal = ({ open, onClose }) => {
 
     // --- YENİ: EditChannelModal'ın açılıp kapanma kontrolü ---
     const [isEditChannelModalOpen, setIsEditChannelModalOpen] = useState(false);
+
+    //kullanıcıyı silme için onay modalı
+    const [removeUserDialogOpen, setRemoveUserDialogOpen] = useState(false);
+
+    // Kendi kendine kanaldan ayrılma onay modalı için state ===
+    const [leaveChannelDialogOpen, setLeaveChannelDialogOpen] = useState(false);
 
     // Kanal ID Yönetimi (Sabit Ana Kanal Hafızası)
     const effectiveChannelId = useMemo(() => {
@@ -177,6 +185,50 @@ const SettingsModal = ({ open, onClose }) => {
         }
     };
 
+    //kullanıcıyı kanaldan çıkarma fonksiyonu
+    const handleConfirmRemoveUser=async()=>{
+        if(!effectiveChannelId || !selectedUserId) 
+        {
+            return;
+        }
+        setLoading(true);
+        try{
+            await dispatch(removeChannelMember({
+                channelId:effectiveChannelId,
+                targetUserId:selectedUserId
+            })).unwrap();
+            setRemoveUserDialogOpen(false);
+            setSettingsView('menu');
+        }
+        catch(err){
+            console.error("Kullanıcı silme hatası:",err);
+        }
+        finally{
+            setLoading(false);
+        }
+    }
+
+    //Kullanıcının Kendisinin Kanaldan Ayrılma Fonksiyonu
+    const handleConfirmLeaveChannel = async () => {
+        if (!effectiveChannelId || !myRealUserId) return;
+        setLoading(true);
+        try {
+            await dispatch(removeChannelMember({ 
+                channelId: effectiveChannelId, 
+                targetUserId: myRealUserId // Hedef olarak KENDİ ID'mizi gönderiyoruz
+            })).unwrap();
+            
+            setLeaveChannelDialogOpen(false);
+            onClose(); // Ayrıldıktan sonra modalı tamamen kapat
+        } catch (err) {
+            console.error("Kanaldan ayrılma hatası:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
+
     return (
         <>
             <Dialog open={open} onClose={!loading ? onClose : null} maxWidth="sm" fullWidth>
@@ -227,6 +279,17 @@ const SettingsModal = ({ open, onClose }) => {
                                             </Button>
                                         </>
                                     )}
+                                    <div style={{ marginTop: '5px', borderTop: '1px solid #E5E7EB', paddingTop: '15px' }}>
+                                        <Button
+                                            variant="outlined"
+                                            color="error"
+                                            fullWidth
+                                            onClick={() => setLeaveChannelDialogOpen(true)}
+                                            style={{ justifyContent: 'flex-start', textTransform: 'none', padding: '10px 15px', fontSize: '16px' }}
+                                        >
+                                            🚪 Kanaldan Ayrıl
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
 
@@ -307,6 +370,18 @@ const SettingsModal = ({ open, onClose }) => {
                                                 onChange={(e) => setMemberLastName(e.target.value)}
                                                 disabled={loading}
                                             />
+                                            <div style={{ marginTop: '10px', borderTop: '1px solid #E5E7EB', paddingTop: '16px' }}>
+                                                <Button 
+                                                    variant="outlined" 
+                                                    color="error" 
+                                                    startIcon={<MdPersonRemove />}
+                                                    onClick={() => setRemoveUserDialogOpen(true)}
+                                                    disabled={loading || !selectedUserId}
+                                                    sx={{ textTransform: 'none', width: '100%', justifyContent: 'center', borderRadius: '8px' }}
+                                                >
+                                                    Kullanıcıyı Kanaldan Çıkar
+                                                </Button>
+                                            </div>
                                         </>
                                     )}
                                 </div>
@@ -335,6 +410,54 @@ const SettingsModal = ({ open, onClose }) => {
                     ) : (
                         <Button onClick={onClose} color="inherit">Kapat</Button>
                     )}
+                </DialogActions>
+            </Dialog>
+
+            {/* === YENİ: Kullanıcı Çıkarma Onay Modalı === */}
+            <Dialog
+                open={removeUserDialogOpen}
+                onClose={() => !loading && setRemoveUserDialogOpen(false)}
+                PaperProps={{ sx: { borderRadius: '12px', padding: '8px', minWidth: '320px' } }}
+            >
+                <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#DC2626' }}>
+                    Kanaldan Çıkar
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ color: 'var(--text-muted)' }}>
+                        <strong style={{color: '#1F2937'}}>{memberFirstName || 'Bu kullanıcıyı'}</strong> kanaldan çıkarmak istediğinize emin misiniz? Kullanıcı kanal geçmişine erişimini kaybedecektir.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ padding: '16px' }}>
+                    <Button onClick={() => setRemoveUserDialogOpen(false)} sx={{ textTransform: 'none', color: '#6B7280' }} disabled={loading}>
+                        İptal
+                    </Button>
+                    <Button onClick={handleConfirmRemoveUser} variant="contained" color="error" sx={{ textTransform: 'none', borderRadius: '6px' }} disabled={loading}>
+                        {loading ? <CircularProgress size={20} color="inherit" /> : 'Evet, Kanaldan Çıkar'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* === YENİ: KENDİ KENDİNE KANALDAN AYRILMA ONAY MODALI === */}
+            <Dialog
+                open={leaveChannelDialogOpen}
+                onClose={() => !loading && setLeaveChannelDialogOpen(false)}
+                PaperProps={{ sx: { borderRadius: '12px', padding: '8px', minWidth: '320px' } }}
+            >
+                <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#DC2626' }}>
+                    Kanaldan Ayrıl
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ color: 'var(--text-muted)' }}>
+                        Bu kanaldan ayrılmak istediğinize emin misiniz? Kanaldan ayrılırsanız, bir yönetici sizi tekrar ekleyene kadar mesaj geçmişine erişemezsiniz.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ padding: '16px' }}>
+                    <Button onClick={() => setLeaveChannelDialogOpen(false)} sx={{ textTransform: 'none', color: '#6B7280' }} disabled={loading}>
+                        İptal
+                    </Button>
+                    <Button onClick={handleConfirmLeaveChannel} variant="contained" color="error" sx={{ textTransform: 'none', borderRadius: '6px' }} disabled={loading}>
+                        {loading ? <CircularProgress size={20} color="inherit" /> : 'Evet, Ayrıl'}
+                    </Button>
                 </DialogActions>
             </Dialog>
 
