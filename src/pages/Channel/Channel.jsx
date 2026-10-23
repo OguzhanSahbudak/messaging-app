@@ -1,57 +1,51 @@
 import React, { useEffect, useState } from 'react'
-import { Box, Button, CircularProgress, Alert } from '@mui/material';
-import api from '../../api/axiosInstance';
+import { Box, Button, CircularProgress, Alert, Badge } from '@mui/material';
+// === DEĞİŞİKLİK 1: API'yi sildik çünkü veriyi Redux Thunk çekecek ===
 import './channel.css';
 import CreateModal from './components/CreateModal';
 import InviteModal from './components/InviteModal';
 import DeleteModal from './components/DeleteModal';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
-import { setActiveChannel, setActiveUser } from '../../store/chatSlice';
+// === DEĞİŞİKLİK 2: useSelector ve fetchChannels eklendi ===
+import { useDispatch, useSelector } from 'react-redux';
+import { setActiveChannel, setActiveUser, fetchChannels, markChannelAsRead } from '../../store/chatSlice';
+import { clearUnreadCount } from '../../store/notificationSlice';
 
 const Channel = () => {
-    const [channels, setChannels] = useState([]);
+    // === DEĞİŞİKLİK 3: Kanalları ve Okunmamış Sayıları Redux'tan canlı olarak çekiyoruz ===
+    const { channels } = useSelector((state) => state.chat);
+    const { unreadCounts } = useSelector((state) => state.notification);
+
     const [isLoading, setIsLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
-
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
-
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-
     const [inviteConfig, setInviteConfig] = useState({ open: false, channelId: null });
     const [deleteConfig, setDeleteConfig] = useState({ open: false, channelId: null });
 
-
-
-
-
+    // === DEĞİŞİKLİK 4: Kendi API isteği yerine Redux Thunk'ı tetikliyoruz ===
     useEffect(() => {
-        const fetchChannels = async () => {
-            try {
-                const response = await api.get('channels/');
-                console.log(response.data);
-                setChannels(response.data);
-
-            }
-            catch (error) {
+        if (channels && channels.length > 0) {
+            setIsLoading(false);
+            return; // Burada dur, aşağıdaki API isteğini ATMA!
+        }
+        dispatch(fetchChannels())
+            .unwrap() // Thunk başarılı olursa try içine düşer
+            .catch((error) => {
                 setErrorMessage('Kanallar yüklenirken bir sorun oluştu.');
                 console.error("Kanallar çekilirken hata oluştu", error);
-            }
-            finally {
+            })
+            .finally(() => {
                 setIsLoading(false);
-            }
-        };
-        fetchChannels();
-    }, []);
+            });
+    }, [dispatch, channels?.length]);
 
     const handleSuccess = (msg) => setSuccessMessage(msg);
     const handleError = (msg) => setErrorMessage(msg);
-
-
 
     if (isLoading) {
         return (
@@ -63,8 +57,6 @@ const Channel = () => {
 
     return (
         <>
-
-
             <div className='channel-page-wrapper'>
                 <div className='channel-card'>
                     {errorMessage && <Alert severity="error" className='channel-alert' sx={{ mb: 2 }}>{errorMessage}</Alert>}
@@ -78,7 +70,7 @@ const Channel = () => {
                             </Button>
                         </Box>
 
-                        {channels.length === 0 ? (
+                        {(!channels || channels.length === 0) ? (
                             <p className='channel-subtitle' style={{ textAlign: 'center', marginTop: '2rem' }}>
                                 Henüz hiçbir kanalda bulunmuyorsunuz.
                             </p>
@@ -87,7 +79,23 @@ const Channel = () => {
                                 {channels.map((channel) => (
                                     <li key={channel.id} className='channel-list-item'>
                                         <div className='channel-item-content'>
-                                            <h4 className='channel-item-name'>{channel.name}</h4>
+
+                                            <h4 className='channel-item-name'>
+                                                <Badge
+                                                    // === DEĞİŞİKLİK 5: Rozet içeriği artık Redux'tan gelen CANLI (Real-time) veri! ===
+                                                    badgeContent={unreadCounts[channel.id] || 0}
+                                                    color="error"
+                                                    max={99}
+                                                    sx={{
+                                                        '& .MuiBadge-badge': {
+                                                            position: 'static',
+                                                            transform: 'none',
+                                                            marginRight: '8px' // İsimle arasına ufak bir boşluk iyi gider
+                                                        }
+                                                    }}
+                                                />
+                                                {channel.name}
+                                            </h4>
                                             <p className='channel-item-desc'>{channel.description}</p>
                                         </div>
                                         <Box sx={{ display: "flex", gap: 1 }}>
@@ -107,9 +115,14 @@ const Channel = () => {
                                                 variant='outlined'
                                                 size='small'
                                                 onClick={() => {
-                                                    dispatch(setActiveChannel(channel)); // Kanalı aktif olarak Redux'a kaydet
-                                                    dispatch(setActiveUser(null));       // Aktif kişiyi sıfırla ki kanal öne çıksın
-                                                    navigate(`/chat/${channel.id}`);     // Sayfaya yönlendir
+                                                    // 1. Tıklar tıklamaz Optimistic UI ile ekrandan rozeti sil
+                                                    dispatch(clearUnreadCount(channel.id));
+
+                                                    // 2. Anında Backend'e /read isteğini fırlat! (Artık iptal olma şansı yok)
+                                                    dispatch(markChannelAsRead(channel.id));
+                                                    dispatch(setActiveChannel(channel));
+                                                    dispatch(setActiveUser(null));
+                                                    navigate(`/chat/${channel.id}`);
                                                 }}
                                             >
                                                 Kanalı Aç
@@ -122,42 +135,34 @@ const Channel = () => {
                     </div>
                 </div>
 
-                {/* İzole Edilmiş Modallar */}
+                {/* Modallar */}
                 <CreateModal
                     open={isCreateOpen}
                     onClose={() => setIsCreateOpen(false)}
                     onSuccess={(newChannel, msg) => {
-                        // Kanalı biz oluşturduğumuz için otomatik olarak role: 'admin' ekliyoruz
-                        const channelWithRole = { ...newChannel, role: 'admin' };
-                        setChannels(prev => [...prev, channelWithRole]);
+                        // Not: Yeni kanal eklendiğinde bunu da Redux'a fırlatman daha temiz olur (ileride chatSlice'a eklersin) ama şimdilik sayfayı yenilemek de iş çözer
+                        dispatch(fetchChannels());
                         handleSuccess(msg);
                     }}
                     onError={handleError}
                 />
 
-                <InviteModal
-                    open={inviteConfig.open}
-                    channelId={inviteConfig.channelId}
-                    onClose={() => setInviteConfig({ open: false, channelId: null })}
-                    onSuccess={handleSuccess}
-                    onError={handleError}
-                />
+                <InviteModal open={inviteConfig.open} channelId={inviteConfig.channelId} onClose={() => setInviteConfig({ open: false, channelId: null })} onSuccess={handleSuccess} onError={handleError} />
 
                 <DeleteModal
                     open={deleteConfig.open}
                     channelId={deleteConfig.channelId}
                     onClose={() => setDeleteConfig({ open: false, channelId: null })}
-                    onSuccess={(deletedId, msg) => { setChannels(channels.filter(c => c.id !== deletedId)); handleSuccess(msg); }}
+                    onSuccess={(deletedId, msg) => {
+                        // Silme işleminden sonra listeyi yenilemek için
+                        dispatch(fetchChannels());
+                        handleSuccess(msg);
+                    }}
                     onError={handleError}
                 />
             </div>
-
         </>
-
-
     )
-
 }
 
 export default Channel;
-

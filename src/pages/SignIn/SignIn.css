@@ -137,22 +137,68 @@
   color: var(--text-main);
 }
 
-
-
-.icon-badge {
-  width: 56px;
-  height: 56px;
-  background-color: rgba(79, 70, 229, 0.08); 
-  color: var(--primary-color);              
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 20px auto;                  
-  border: 1px solid rgba(79, 70, 229, 0.15);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
 .header-icon {
   font-size: 26px; 
+}
+
+
+.signin-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--card-bg);
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  text-align: center;
+  box-sizing: border-box; /* Padding'in genişliği bozmasını engeller */
+}
+
+
+.logo-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.signin-logo {
+   width: 140px; /* Logoyu kutunun %75'i kadar yapıp etrafında boşluk (padding) bırakıyoruz */
+    height: auto;
+    object-fit: contain;
+    filter: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.6));
+    transition: transform 0.3s ease;
+}
+
+
+
+.signin-logo:hover {
+    transform: scale(1.05); /* Üzerine gelince hafif büyür */
+}
+
+
+
+
+@media (max-width: 480px) {
+    .signin-card {
+        padding: 30px 20px; /* Mobilde kartın iç boşluğunu azaltır */
+        border-radius: 12px;
+        box-shadow: none; /* Mobilde gölgeyi kapatıp daha düz bir görünüm verebilirsin */
+        border: none;
+    }
+
+   
+
+    .signin-logo {
+        width: 100px; /* Mobilde logo biraz küçülür */
+        height: auto;
+        border-radius: 14px;
+    }
+
+    .signin-title {
+        font-size: 22px; /* Başlık küçülür */
+    }
+
+    .signin-subtitle {
+        font-size: 14px;
+    }
 }

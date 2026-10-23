@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import api from '../api/axiosInstance';
+import { setInitialUnreadCounts } from './notificationSlice';
 
 // ==========================================
 // YARDIMCI FONKSİYONLAR
@@ -35,9 +36,13 @@ export const updateChannel = createAsyncThunk(
 // 1. DMs sekmesindeki geçmiş sohbet odalarını çekme (GET /api/v1/channels/dms) DMs sekmesindeki geçmiş sohbet odalarını çekme
 export const fetchMyDms = createAsyncThunk(
     'chat/fetchMyDms',
-    async (_, { rejectWithValue }) => {
+    async (_, { dispatch, rejectWithValue }) => {
         try {
             const response = await api.get('channels/dms');
+            // === KUSURSUZ ENTEGRASYON: Backend'den veri geldiği an sayıları Redux'a doldur ===
+            if (Array.isArray(response.data)) {
+                 dispatch(setInitialUnreadCounts(response.data));
+            }
             return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data || 'DM listesi çekilemedi');
@@ -127,9 +132,22 @@ export const updateChannelMessage = createAsyncThunk(
 //ortak kanalı çekme
 export const fetchChannels = createAsyncThunk(
     'chat/fetchChannels',
-    async (_, { rejectWithValue }) => {
+    async (_, { dispatch , rejectWithValue }) => {
         try {
             const response = await api.get('channels');
+            // Backend'den dönen esnek yapıyı (senin yazdığın gibi) diziye çevirip yakalıyoruz
+            let channelList = [];
+            if (Array.isArray(response.data)) {
+                channelList = response.data;
+            } else if (response.data && Array.isArray(response.data.data)) {
+                channelList = response.data.data;
+            } else if (response.data && Array.isArray(response.data.channels)) {
+                channelList = response.data.channels;
+            }
+
+            // === VERİYİ YAKALADIK VE ROZETLERİ DOLDURDUK ===
+            dispatch(setInitialUnreadCounts(channelList));
+            
             return response.data;
         }
         catch (error) {
@@ -150,6 +168,21 @@ export const fetchChannels = createAsyncThunk(
             catch(error)
             {
                 return rejectWithValue(error.response?.data || 'DM sohbeti silinmedi');
+            }
+        }
+    )
+
+
+    export const markChannelAsRead=createAsyncThunk(
+        'chat/markChannelAsRead',
+        async (channelId , {rejectWithValue})=>{
+            try{
+                await api.post(`channels/${channelId}/read`);
+                return channelId;
+            }
+            catch(error)
+            {
+                return rejectWithValue(error.response?.data || 'Okundu bilgisi gönderilmedi')
             }
         }
     )
@@ -440,6 +473,23 @@ const chatSlice = createSlice({
                     localStorage.removeItem('activeUser');
                 }
             })
+
+            .addCase(markChannelAsRead.fulfilled , (state , action)=>{
+                const readChannelId=action.payload;
+
+
+                // 1. Kanal listesinde o kanalı bulup sayacı anında 0 yapıyoruz
+                const channel = state.channels.find(c => c.id === readChannelId);
+                if (channel) {
+                    channel.unread_message_count = 0; 
+                }
+
+                // 2. Eğer aktif kanalın kendi içinde de bir sayaç tutuluyorsa onu da sıfırlıyoruz
+                if (state.activeChannel && state.activeChannel.id === readChannelId) {
+                    state.activeChannel.unread_message_count = 0;
+                }
+            })
+
 
     }
 });

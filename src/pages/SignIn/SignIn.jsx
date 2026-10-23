@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
 import './SignIn.css'
 import { useNavigate } from 'react-router-dom';
-import {  HiChatBubbleLeftRight, HiEnvelope, HiPaperAirplane } from "react-icons/hi2";
+import { HiChatBubbleLeftRight, HiEnvelope, HiPaperAirplane } from "react-icons/hi2";
 import axios from 'axios';
 import { TextField } from '@mui/material';
-import api from '../../api/axiosInstance'
+import api from '../../api/axiosInstance';
+import ArtVoiceLogo from '../../assets/Art-Voice-Logo.png'
 
 const SignIn = () => {
   const [step, setStep] = useState(0);
@@ -16,17 +17,17 @@ const SignIn = () => {
   const handleSendLink = async () => {
     setIsLoading(true);
     setError('');
-    try{
-      await api.post(`auth/request-magic-link`,{
-          email:email
+    try {
+      await api.post(`auth/request-magic-link`, {
+        email: email
       });
     }
-    catch(err){
-        console.log("Hata:",err);
-        setError('Mail gönderilmedi. lütfen tekrar deneyin')
+    catch (err) {
+      console.log("Hata:", err);
+      setError('Mail gönderilmedi. lütfen tekrar deneyin')
 
     }
-    finally{
+    finally {
       setIsLoading(false)
     }
 
@@ -38,16 +39,24 @@ const SignIn = () => {
     <div className="signin-wrapper">
       <div className="signin-card">
 
-        
+
 
         {/* Her aşamada değişen dinamik başlık alanı */}
         <div className="signin-header">
-          <div className="icon-badge">
-            {step === 0 && <HiChatBubbleLeftRight className="header-icon" />}
-            {step === 1 && <HiEnvelope className="header-icon" />}
-            {step === 2 && <HiPaperAirplane className="header-icon" />}
+          <div className="logo-container">
+           
+              <img
+                src={ArtVoiceLogo}
+                alt=" Uygulama Logosu"
+                className="signin-logo"
+              />
+            
           </div>
-          <h2 className="signin-title">Hoş Geldiniz</h2>
+          <h2 className="signin-title">
+            {step===0 && 'Hoş Geldiniz'}
+            {step===1 && 'Giriş Yapın'}
+            {step===2 && 'Bağlantı Gönderildi'}
+          </h2>
           <p className="signin-subtitle">
             {step === 0 && "Uygulamaya giriş yapmak için devam edin"}
             {step === 1 && " e-posta adresinizi girin"}
@@ -66,9 +75,9 @@ const SignIn = () => {
 
         {/* 2. Aşama: Email Formu */}
         {step === 1 && (
-        
+
           <div className="fade-in-step">
-            
+
             <div className="input-group">
               <TextField
                 label="E-Posta Adresi"
@@ -79,16 +88,7 @@ const SignIn = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 className='signin-input'
               />
-              {/* <label className="input-label">E-posta Adresi</label>
-              <input
-                type="email"
-                className="signin-input"
-                placeholder="ahmet@gmail.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoFocus
-                disabled={isLoading}
-              /> */}
+
             </div>
 
             {error && <p style={{ color: 'red', fontSize: '14px', marginBottom: '10px' }}>{error}</p>}
@@ -99,7 +99,7 @@ const SignIn = () => {
               onClick={handleSendLink}
               disabled={!email.includes('@') || isLoading}
             >
-              {isLoading ? 'Gönderiliyor' :'Gönder'}
+              {isLoading ? 'Gönderiliyor' : 'Gönder'}
             </button>
 
             <button className="back-btn" onClick={() => setStep(0)} disabled={isLoading}>
@@ -108,7 +108,7 @@ const SignIn = () => {
           </div>
         )}
 
-        
+
         {step === 2 && (
           <div className="fade-in-step">
             <div style={{ margin: '20px 0', fontSize: '48px' }}>✉️</div>

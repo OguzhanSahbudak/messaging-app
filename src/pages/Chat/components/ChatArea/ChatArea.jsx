@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import { useDispatch, useSelector } from 'react-redux';
-import { addMessage, fetchChannelMessages, moveChannelToTop, realtimeMessageDeleted, realtimeMessageUpdated } from '../../../../store/chatSlice';
+import { addMessage, fetchChannelMessages, markChannelAsRead, moveChannelToTop, realtimeMessageDeleted, realtimeMessageUpdated } from '../../../../store/chatSlice';
 import { useChatWebSocket } from '../../../../hooks/useChatWebSocket';
 import api from '../../../../api/axiosInstance'
+import { clearUnreadCount } from '../../../../store/notificationSlice';
 
 
 
@@ -16,11 +17,17 @@ const ChatArea = ({ toggleMobileSidebar }) => {
     // --- YENİ: Arama metni state'ini ortak ebeveyn olan ChatArea'da tutuyoruz ---
     const [searchQuery, setSearchQuery] = useState('');
 
+    const prevChannelIdRef = useRef(activeChannel?.id);
+
+    const isFirstMount=useRef(true);
+
     // Aktif kanal değiştiğinde geçmiş mesajları çek
     useEffect(() => {
         if (activeChannel?.id) {
             setSearchQuery('');
             dispatch(fetchChannelMessages({ channelId: activeChannel.id, offset: 0, limit: 50 }));
+
+           
         }
     }, [dispatch, activeChannel?.id]);
 
@@ -45,6 +52,8 @@ const ChatArea = ({ toggleMobileSidebar }) => {
             case 'new_message':
                 if (parsedData.content || parsedData.message) {
                     dispatch(addMessage(parsedData));
+
+                    dispatch(clearUnreadCount(activeChannel.id))
                 }
                 break;
 
@@ -57,7 +66,7 @@ const ChatArea = ({ toggleMobileSidebar }) => {
                 break;
 
             // Oda içinde mesaj güncellendiğinde/düzenlendiğinde tetiklenecek event'ler
-            
+
             case 'message_edited':
                 console.log("✏️ Oda İçinde Mesaj Güncellendi:", parsedData);
                 dispatch(realtimeMessageUpdated(parsedData));
@@ -69,7 +78,7 @@ const ChatArea = ({ toggleMobileSidebar }) => {
                 }
                 break;
         }
-    }, [dispatch]);
+    }, [dispatch, activeChannel?.id]);
 
     const { sendMessage } = useChatWebSocket(wsUrl, handleReceiveMessage);
 

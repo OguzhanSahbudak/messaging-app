@@ -52,8 +52,13 @@ export const useGlobalWebSocket = () => {
                 case 'new_message':
                 case 'chat_message':
                 case 'notification': {
-                    const currentChannelId = activeChannelRef.current?.id;
-                    const isDifferentChannel = !data.channel_id || String(data.channel_id) !== String(currentChannelId);
+                  const currentChannelId = activeChannelRef.current?.id;
+                    
+                    // 1. ESNEK ID YAKALAMA
+                    const incomingId = data.channel_id || data.room_id || data.sender_id;
+                    
+                    // 2. DİKKAT: Kıyaslamayı artık 'incomingId' ile yapıyoruz!
+                    const isDifferentChannel = !incomingId || String(incomingId) !== String(currentChannelId);
 
                     // Sekme arka planda mı / simge durumunda mı kontrolü
                     const isTabHidden = document.visibilityState === 'hidden' || !document.hasFocus();
@@ -61,21 +66,21 @@ export const useGlobalWebSocket = () => {
                     console.log("🔔 Bildirim Kontrolü:", {
                         isDifferentChannel,
                         currentChannelId,
-                        gelenChannelId: data.channel_id,
+                        gelenId: incomingId, // Burayı da incomingId yaptık
                         isTabHidden
                     });
 
-                    // Mesaj gelen kanalı listenin en üstüne taşı
-                    if (data.channel_id) {
-                        dispatch(moveChannelToTop(data.channel_id));
+                    // 3. Mesaj gelen kanalı listenin en üstüne taşı (Tek sefer yazmamız yeterli)
+                    if (incomingId) {
+                        dispatch(moveChannelToTop(incomingId));
                     }
 
                     // Bildirim Tetikleme: Farklı kanaldaysak VEYA sekme tamamen gizliyse
                     if (isDifferentChannel || isTabHidden) {
 
                         // Sadece farklı kanaldaysak okunmamış rozetini artır
-                        if (isDifferentChannel && data.channel_id) {
-                            dispatch(incrementUnreadCount(data.channel_id));
+                        if (isDifferentChannel && incomingId) {
+                            dispatch(incrementUnreadCount(incomingId));
                         }
 
                         // Bildirim sesini başa alıp çal

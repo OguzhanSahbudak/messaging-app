@@ -6,23 +6,31 @@ import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import { useDispatch, useSelector } from 'react-redux';
 import { setActiveTab, fetchMyDms } from '../../../store/chatSlice';
 import { Badge } from '@mui/material';
-import SettingsModal from './ChatArea/SettingsModal'; // Yeni oluşturduğumuz modalı import ettik
+import SettingsModal from './ChatArea/SettingsModal';
 import '../Sidebar.css';
+import Favicon from '../../../assets/Favicon.jpeg'
 
 const AppSidebar = () => {
     const dispatch = useDispatch();
     const activeTab = useSelector((state) => state.chat.activeTab);
+    
+    // === YENİ: DMs listesini Redux'tan alıyoruz ===
+    const dmList = useSelector((state) => state.chat.dmList);
 
     const { unreadCounts } = useSelector((state) => state.notification);
+    // Toplam okunmamış mesaj sayısını hesaplıyoruz
     const totalUnread = Object.values(unreadCounts).reduce((acc, count) => acc + count, 0);
 
-    // Settings Modalının Görünürlük State'i
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     const handleTabClick = (tabName) => {
         dispatch(setActiveTab(tabName));
+        
         if (tabName === 'dms') {
-            dispatch(fetchMyDms());
+            // === OPTIMISTIC UI KORUMASI: Eğer DMs listesi boşsa API'ye git, doluysa backend'i yorma! ===
+            if (!dmList || dmList.length === 0) {
+                dispatch(fetchMyDms());
+            }
         }
     };
 
@@ -30,7 +38,12 @@ const AppSidebar = () => {
         <>
             <div className="app-sidebar">
                 <div className="app-logo-wrapper">
-                    <ForumRoundedIcon fontSize="medium" />
+                    <img src={Favicon} style={{ 
+                        width: '55px', 
+                        height: '55px', 
+                        borderRadius: '12px', 
+                        objectFit: 'cover' 
+                    }} alt="App Logo" />
                 </div>
 
                 <button
@@ -45,7 +58,9 @@ const AppSidebar = () => {
                     className={`app-icon-btn ${activeTab === 'dms' ? 'active' : ''}`}
                     onClick={() => handleTabClick('dms')}
                 >
-                    <Badge badgeContent={totalUnread} color="error" max={99}>
+                    <Badge badgeContent={totalUnread} color="error" max={99}
+                        sx={{ '& .MuiBadge-badge': { right: -3, top: 3 } }} 
+                    >
                         <ForumRoundedIcon fontSize="small" />
                     </Badge>
                     <span>DMs</span>
@@ -66,7 +81,6 @@ const AppSidebar = () => {
                 </button>
             </div>
 
-            {/* Ayarlar Modalı (Ayrı Bileşen) */}
             <SettingsModal
                 open={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}

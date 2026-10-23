@@ -7,6 +7,7 @@ import { MdOutlineDeleteForever } from "react-icons/md";
 import { clearUnreadCount } from '../../../store/notificationSlice';
 import '../Sidebar.css'
 
+
 const WorkspaceSidebar = ({ isOpen, activeUserId, onSelectUser, channelId }) => {
    
     const dispatch = useDispatch();

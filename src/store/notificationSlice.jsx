@@ -15,6 +15,18 @@ const notificationSlice=createSlice({
     name:'notification',
     initialState,
     reducers:{
+        // === YENİ EKLENEN REDUCER: Sayfa açıldığında backend'den gelen sayıları kaydeder ===
+        setInitialUnreadCounts: (state, action) => {
+            const channelsList = action.payload; // Backend'den gelen kanal/DM listesi (Array)
+
+            console.log("🔥 X-RAY 1 (Redux'a Gelen Veri):", channelsList);
+            
+            channelsList.forEach(channel => {
+                if (channel.unread_message_count > 0) {
+                    state.unreadCounts[channel.id] = channel.unread_message_count;
+                }
+            });
+        },
         // 1. Okunmamış mesaj sayısını artır
         incrementUnreadCount:(state , action) =>{
             const senderId=action.payload;
@@ -42,5 +54,5 @@ const notificationSlice=createSlice({
     }
 })
 
-export const { incrementUnreadCount, clearUnreadCount, showNotification, hideNotification } = notificationSlice.actions;
+export const { incrementUnreadCount, clearUnreadCount, showNotification, hideNotification ,setInitialUnreadCounts } = notificationSlice.actions;
 export default notificationSlice.reducer;
